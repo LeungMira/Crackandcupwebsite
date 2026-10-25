@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRACK & CUP | Rage Room & Coffee Shop — Order Online</title>
+  <!-- Google Fonts: Graffiti / Marker + Clean Brutalist Sans + Monospace Receipt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Spray+Paint&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Cement Texture & Subtle Graffiti Grain Overlay -->
+  <div class="cement-overlay" aria-hidden="true"></div>
+
+  <!-- Floating Minimal Cutesy & Cool Graffiti Art Layer (Uses User's Graffiti PNGs + Street Doodles on the Single Cement Wall) -->
+  <div class="graffiti-decor" aria-hidden="true">
+    <!-- 1. User's Graffiti Art: Winking Tongue-Out Spray Smiley (Top Left Wall) -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster.png"
+      alt=""
+      class="graffiti-img g-smiley-top"
+    />
+
+    <!-- 2. User's Graffiti Art: Dripping Spray-Paint Watching Eyes Box (Top Right Wall) -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(2).png"
+      alt=""
+      class="graffiti-img g-eyes-topright"
+    />
+
+    <!-- 3. User's Graffiti Art: Cutesy Scribbled Marker Flower (Upper Mid Left Wall) -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(1).png"
+      alt=""
+      class="graffiti-img g-flower-left"
+    />
+
+    <!-- 4. User's Graffiti Art: Splattered Exclamation Mark '!' (Mid Right Wall) -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(5).png"
+      alt=""
+      class="graffiti-img g-exclamation-right"
+    />
+
+    <!-- 5. User's Graffiti Art: Graffiti Heart with Arrow (Bottom Left Wall) -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(3).png"
+      alt=""
+      class="graffiti-img g-heart-bottomleft"
+    />
+
+    <!-- 6. Second Placement of Scribbled Flower & Smiley & Heart for Richer Street Wall Vibe -->
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(1).png"
+      alt=""
+      class="graffiti-img g-flower-bottomright"
+    />
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(3).png"
+      alt=""
+      class="graffiti-img g-heart-midright"
+    />
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster.png"
+      alt=""
+      class="graffiti-img g-smiley-bottom"
+    />
+    <img
+      src="assets/Red%20and%20Beige%20Retro%20Modern%20Raffle%20Contest%20Poster%20(5).png"
+      alt=""
+      class="graffiti-img g-exclamation-left"
+    />
+
+    <!-- Crown Doodle (inspired by poster) -->
+    <svg class="doodle doodle-crown" viewBox="0 0 120 80" fill="none">
+      <path d="M15 60 L10 20 L40 42 L60 12 L80 42 L110 20 L105 60 Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
+      <line x1="12" y1="68" x2="108" y2="68" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+      <line x1="16" y1="75" x2="104" y2="75" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="10" cy="14" r="4.5" fill="currentColor"/>
+      <circle cx="60" cy="6" r="4.5" fill="currentColor"/>
+      <circle cx="110" cy="14" r="4.5" fill="currentColor"/>
+    </svg>
+
+    <!-- Cutesy Cracked Mug Buddy -->
+    <svg class="doodle doodle-mug" viewBox="0 0 120 130" fill="none">
+      <path d="M45 28 C40 18, 55 14, 50 4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M68 26 C63 16, 78 12, 73 4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M24 38 H88 L82 98 C81 108 73 114 62 114 H50 C39 114 31 108 30 98 Z" stroke="currentColor" stroke-width="4" fill="none" stroke-linejoin="round"/>
+      <path d="M86 48 H96 C104 48 108 55 108 64 C108 73 102 80 94 80 H84" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+      <path d="M58 38 L52 54 L63 62 L54 78" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M37 68 L45 76 M45 68 L37 76" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M67 72 Q72 66 77 72" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M51 83 Q56 89 62 83" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+
+    <!-- Sparkles, X-Tags & Graffiti Stars -->
+    <svg class="doodle doodle-star-1" viewBox="0 0 60 60" fill="none">
+      <path d="M30 4 L35 24 L56 30 L35 36 L30 56 L25 36 L4 30 L25 24 Z" stroke="currentColor" stroke-width="3.5" fill="currentColor" fill-opacity="0.14"/>
+    </svg>
+    <svg class="doodle doodle-star-2" viewBox="0 0 60 60" fill="none">
+      <path d="M30 6 L34 25 L54 30 L34 35 L30 54 L26 35 L6 30 L26 25 Z" stroke="currentColor" stroke-width="3.5"/>
+    </svg>
+  </div>
+
+  <!-- Top Street-Art Marquee Bar -->
+  <div class="top-ticker">
+    <div class="ticker-track">
+      <span>★ CRACK &amp; CUP — RAGE ROOM &amp; COFFEE SHOP</span>
+      <span>✦ COME TO LOSE THE BLUES, AND STAY FOR THE BREWS.</span>
+      <span>★ AUTO-TEMPLATE ORDER TABLE</span>
+      <span>✦ SMASH • SIP • CHAO FAN BOWLS</span>
+      <span>★ CRACK &amp; CUP — RAGE ROOM &amp; COFFEE SHOP</span>
+      <span>✦ COME TO LOSE THE BLUES, AND STAY FOR THE BREWS.</span>
+    </div>
+  </div>
+
+  <!-- Main Poster Frame (Matches the Cement Poster Border from Real.PNG) -->
+  <div class="poster-frame">
+    <!-- HEADER / HERO -->
+    <header class="site-header">
+      <div class="header-top-bar">
+        <div class="brand-badge">
+          <span class="tag-pill">EST. 2026 • STREET BREWS <span class="amp-clean">&amp;</span> BOWLS</span>
+          <span class="status-text seesaw-badge">★ OPEN FOR ORDERS ★</span>
+        </div>
+
+        <div class="header-actions">
+          <button type="button" id="togglePhotoModeBtn" class="btn-tag" title="Switch food photos between B&W Graffiti mode and Full Color">
+            ◐ PHOTO FILTER: <strong id="photoModeLabel">B&amp;W INK</strong>
+          </button>
+          <button type="button" id="headerOrderNowBtn" class="btn-tag btn-jump-order">
+            ✎ ORDER NOW (<span id="headerCartCount">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <!-- Left: Graffiti Title & Banner -->
+        <div class="hero-copy">
+          <div class="graffiti-kicker">
+            <svg class="mini-crown" viewBox="0 0 44 30" fill="none">
+              <path d="M4 24 L2 7 L15 16 L22 4 L29 16 L42 7 L40 24 Z" stroke="currentColor" stroke-width="3" fill="none"/>
+            </svg>
+            <span>RAGE ROOM <span class="amp-clean">&amp;</span> COFFEE SHOP</span>
+          </div>
+
+          <h1 class="graffiti-title">
+            CRACK <span class="amp-stroke">&amp;</span> CUP
+            <span class="spray-drip" aria-hidden="true"></span>
+          </h1>
+
+          <p class="hero-tagline">
+            “COME TO LOSE THE BLUES, AND STAY FOR THE BREWS.”
+          </p>
+
+          <!-- Official Banner Asset from Folder -->
+          <div class="banner-card">
+            <span class="tape tape-tl"></span>
+            <span class="tape tape-br"></span>
+            <img src="Banner.jfif" alt="Come to lose the blues, and stay for the brews - Crack & Cup Banner" class="banner-img" />
+          </div>
+
+          <div class="hero-cta-row">
+            <button type="button" id="heroOrderNowBtn" class="btn-brutal btn-primary">
+              <span>★ ORDER NOW</span>
+              <span class="btn-arrow">↓</span>
+            </button>
+            <a href="#menu-section" class="btn-brutal btn-secondary">
+              <span>BROWSE MENU</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: Official Logo Sticker & Cute Graffiti Mascot Note -->
+        <div class="hero-logo-box">
+          <div class="logo-sticker-wrap">
+            <img src="Logo-removebg-preview.png" alt="Crack & Cup Official Logo" class="official-logo" />
+            <div class="cutesy-sticker sticker-top-right">
+              <span>FRESH BOWLS <span class="amp-clean">&amp;</span> BREWS! ★</span>
+            </div>
+            <div class="cutesy-sticker sticker-bottom-left">
+              <span>(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ CRACK &amp; CUP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- STEP 1: VISUAL QUICK-ADD MENU (Only Pictured Food Items + "More items soon!" Card) -->
+    <section id="menu-section" class="menu-section">
+      <div class="section-header-bar">
+        <div>
+          <span class="step-badge">MENU BOARD // FOOD &amp; DRINKS</span>
+          <h2 class="section-title">CHAO FAN BOWLS <span class="amp-clean">&amp;</span> BREWS</h2>
+        </div>
+        <div class="menu-header-right">
+          <p class="section-sub">
+            Adjust <strong>Quantity</strong> &amp; check the <strong>Amount</strong> right beside each button, or click <strong>ORDER NOW</strong> to open the order table!
+          </p>
+          <button type="button" id="menuSectionOrderNowBtn" class="btn-brutal btn-secondary btn-sm">
+            ★ ORDER NOW (OPEN TABLE)
+          </button>
+        </div>
+      </div>
+
+      <!-- Category Filter Tabs (Only Food & Drinks — No Smash Room Add-ons) -->
+      <div class="category-tabs" role="tablist">
+        <button type="button" class="cat-tab active" data-category="all">★ ALL FEATURED</button>
+        <button type="button" class="cat-tab" data-category="Chao Fan Bowls">🍚 CHAO FAN &amp; RICE BOWLS</button>
+        <button type="button" class="cat-tab" data-category="Drinks & More">☕ DRINKS &amp; MORE (SOON!)</button>
+      </div>
+
+      <!-- Menu Cards Grid (Populated by script.js with pictured items + "More items soon!" card) -->
+      <div id="menuGrid" class="menu-grid"></div>
+
+      <!-- Big Centered ORDER NOW Trigger Banner beneath the Menu -->
+      <div id="orderNowPromptBox" class="order-now-prompt-box">
+        <div class="prompt-left">
+          <span class="prompt-kicker">READY TO PLACE YOUR ORDER?</span>
+          <h3>CLICK “ORDER NOW” TO OPEN THE AUTO-TEMPLATE FILLOUT TABLE</h3>
+        </div>
+        <button type="button" id="bannerOrderNowBtn" class="btn-brutal btn-primary">
+          <span>✎ ORDER NOW — FILL OUT TABLE</span>
+          <span class="btn-arrow">↓</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 2: AUTO-TEMPLATE FILLOUT ORDER TABLE (Hidden until user clicks an ORDER NOW button!) -->
+    <section id="order-table-section" class="order-table-section hidden">
+      <div class="section-header-bar">
+        <div>
+          <span class="step-badge">AUTO-TEMPLATE FILLOUT TABLE</span>
+          <h2 class="section-title">POST YOUR ORDER TABLE</h2>
+        </div>
+        <div class="table-header-controls">
+          <button type="button" id="loadSampleOrderBtn" class="btn-tag">
+            ✦ AUTO-FILL SAMPLE
+          </button>
+          <button type="button" id="clearTableBtn" class="btn-tag">
+            ✕ RESET TABLE
+          </button>
+          <button type="button" id="hideOrderTableBtn" class="btn-tag">
+            ▲ HIDE TABLE
+          </button>
+        </div>
+      </div>
+
+      <!-- AUTO-ADD BAR: Button that adds an item to the table + button next to it for Quantity & Amount -->
+      <div class="quick-builder-bar">
+        <div class="builder-label">
+          <span class="graffiti-bullet">★</span>
+          <strong>ADD ITEM TO TABLE:</strong>
+        </div>
+
+        <div class="builder-controls">
+          <!-- Item Template Selector -->
+          <div class="builder-field builder-item-select-wrap">
+            <label for="quickItemSelect" class="sr-only">Select Menu Item</label>
+            <select id="quickItemSelect" class="input-brutal">
+              <!-- Populated dynamically with all menu items + Custom Item option -->
+            </select>
+          </div>
+
+          <!-- Custom Item Name & Price (Only shown if "Custom Item" is picked) -->
+          <div id="customItemInputs" class="custom-item-inputs hidden">
+            <input type="text" id="customItemName" class="input-brutal" placeholder="Custom item name..." />
+            <input type="number" id="customItemPrice" class="input-brutal input-price-sm" placeholder="₱ Price" min="0" value="89" />
+          </div>
+
+          <!-- Button/Control Next to It: QUANTITY & AMOUNT -->
+          <div class="qty-amount-pill" title="Adjust Quantity and see computed Amount before adding">
+            <div class="pill-qty-group">
+              <span class="pill-mini-label">QTY</span>
+              <button type="button" id="builderQtyMinus" class="qty-step-btn" aria-label="Decrease quantity">−</button>
+              <input type="number" id="builderQtyInput" class="qty-num-input" value="1" min="1" max="99" />
+              <button type="button" id="builderQtyPlus" class="qty-step-btn" aria-label="Increase quantity">+</button>
+            </div>
+            <div class="pill-divider"></div>
+            <div class="pill-amount-group">
+              <span class="pill-mini-label">AMOUNT</span>
+              <span id="builderComputedAmount" class="pill-amount-val">₱99</span>
+            </div>
+          </div>
+
+          <!-- THE BUTTON THAT ADDS THE ITEM TO THEIR TABLE -->
+          <button type="button" id="addToTableBtn" class="btn-brutal btn-add-main">
+            <span>+ ADD ITEM TO TABLE</span>
+          </button>
+
+          <!-- Also a button to add a blank template row directly -->
+          <button type="button" id="addBlankRowBtn" class="btn-brutal btn-secondary btn-sm" title="Insert a new template row directly in the table">
+            <span>+ NEW ROW</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- THE MAIN ORDER FILLOUT TABLE (Items on top, Totals in middle, Contact Info & Location at the bottom of the table!) -->
+      <div class="order-sheet-wrapper">
+        <div class="sheet-top-stamp">
+          <div class="sheet-brand">
+            <img src="Logo-removebg-preview.png" alt="Crack & Cup" class="sheet-mini-logo" />
+            <div>
+              <strong>CRACK &amp; CUP // OFFICIAL ORDER SLIP</strong>
+              <span>AUTO-TEMPLATE FILLOUT TABLE • CURRENCY: PHP (₱)</span>
+            </div>
+          </div>
+          <div class="sheet-meta">
+            <span>ORDER REF: <strong id="orderRefCode">#CNC-0001</strong></span>
+            <span id="orderDateStamp">DATE: --</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="order-fillout-table" id="orderFilloutTable">
+            <thead>
+              <tr>
+                <th class="col-num">#</th>
+                <th class="col-item">ITEM / ORDER SELECTION <span class="th-hint">(Auto-Template Dropdown or Custom)</span></th>
+                <th class="col-notes">ADD-ONS / NOTES <span class="th-hint">(Sugar, Ice, Egg +₱15)</span></th>
+                <th class="col-qty-amt">QUANTITY &amp; AMOUNT <span class="th-hint">(Qty Buttons + Computed ₱ Amount)</span></th>
+                <th class="col-action">DEL</th>
+              </tr>
+            </thead>
+
+            <!-- Dynamic Item Rows -->
+            <tbody id="orderTableBody">
+              <!-- Populated by script.js -->
+            </tbody>
+
+            <!-- Table Footer Part 1: Quick Add Row Button & Grand Total -->
+            <tfoot class="order-table-footer">
+              <tr class="row-add-trigger">
+                <td colspan="3">
+                  <div class="inline-row-adder">
+                    <button type="button" id="tableFooterAddBtn" class="btn-inline-add">
+                      + ADD ANOTHER ITEM ROW
+                    </button>
+                    <span class="inline-adder-hint">← Click to insert a row, then adjust Qty &amp; Amount right next to it</span>
+                  </div>
+                </td>
+                <td colspan="2" class="summary-calc-cell">
+                  <div class="summary-line">
+                    <span>TOTAL QTY:</span>
+                    <strong id="summaryTotalQty">0 items</strong>
+                  </div>
+                  <div class="summary-line grand-total-line">
+                    <span>TOTAL AMOUNT:</span>
+                    <strong id="summaryTotalAmount">₱0</strong>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Table Footer Part 2: CUSTOMER CONTACT INFORMATION & LOCATION (Directly at the bottom of the table as requested!) -->
+              <tr class="table-section-divider">
+                <td colspan="5">
+                  <div class="divider-banner">
+                    <span>★ CUSTOMER CONTACT INFORMATION &amp; DELIVERY LOCATION (BOTTOM OF TABLE) ★</span>
+                  </div>
+                </td>
+              </tr>
+
+              <tr class="contact-location-row">
+                <td colspan="5" class="contact-location-cell">
+                  <div class="contact-grid">
+                    <!-- Customer Name -->
+                    <div class="form-cell">
+                      <label for="custName">1. CUSTOMER NAME / NICKNAME *</label>
+                      <input type="text" id="custName" class="input-brutal" placeholder="e.g. Juan Dela Cruz" required />
+                    </div>
+
+                    <!-- Contact Number -->
+                    <div class="form-cell">
+                      <label for="custPhone">2. CONTACT NUMBER (SMS / GCASH) *</label>
+                      <input type="tel" id="custPhone" class="input-brutal" placeholder="e.g. 0917 123 4567" required />
+                    </div>
+
+                    <!-- Messenger / IG Handle -->
+                    <div class="form-cell">
+                      <label for="custSocial">3. FB MESSENGER / IG HANDLE</label>
+                      <input type="text" id="custSocial" class="input-brutal" placeholder="e.g. fb.com/juandelacruz or @juan" />
+                    </div>
+
+                    <!-- Order Mode & Payment -->
+                    <div class="form-cell">
+                      <label for="custFulfillment">4. ORDER TYPE &amp; PAYMENT</label>
+                      <div class="split-selects">
+                        <select id="custFulfillment" class="input-brutal">
+                          <option value="Delivery">🛵 Delivery</option>
+                          <option value="Pick-Up">🛍️ Pick-Up at Shop</option>
+                          <option value="Dine-In">🍽️ Dine-In at Shop</option>
+                        </select>
+                        <select id="custPayment" class="input-brutal">
+                          <option value="GCash">GCash</option>
+                          <option value="Cash on Delivery (COD)">Cash / COD</option>
+                          <option value="Maya">Maya</option>
+                          <option value="Pay at Counter">Pay at Counter</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Full Location / Address -->
+                    <div class="form-cell form-cell-wide">
+                      <div class="label-with-action">
+                        <label for="custLocation">5. COMPLETE LOCATION / DELIVERY ADDRESS *</label>
+                        <button type="button" id="detectLocationBtn" class="btn-mini-pin">
+                          📍 PIN MY CURRENT GPS LOCATION
+                        </button>
+                      </div>
+                      <input type="text" id="custLocation" class="input-brutal" placeholder="House/Unit #, Street, Subdivision/Barangay, City (or paste Google Maps link)" required />
+                    </div>
+
+                    <!-- Landmark / Special Delivery Instructions -->
+                    <div class="form-cell">
+                      <label for="custLandmark">6. NEAREST LANDMARK / GATE COLOR</label>
+                      <input type="text" id="custLandmark" class="input-brutal" placeholder="e.g. Near Brgy Hall, black gate" />
+                    </div>
+
+                    <!-- Preferred Time / Notes -->
+                    <div class="form-cell">
+                      <label for="custTime">7. PREFERRED TIME / EXTRA NOTES</label>
+                      <input type="text" id="custTime" class="input-brutal" placeholder="e.g. ASAP / 4:00 PM / Extra utensils" />
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Bottom Action Bar of the Order Table -->
+        <div class="sheet-submit-bar">
+          <div class="submit-left-note">
+            <span class="cute-kaomoji">(っ˘ڡ˘ς)</span>
+            <span>Your order template updates automatically as you edit the table!</span>
+          </div>
+
+          <div class="submit-buttons">
+            <button type="button" id="copyOrderTemplateBtn" class="btn-brutal btn-secondary">
+              📋 COPY AUTO-TEMPLATE TEXT
+            </button>
+            <button type="button" id="sendOrderDirectBtn" class="btn-brutal btn-primary">
+              🚀 SUBMIT ORDER NOW
+            </button>
+          </div>
+        </div>
+      </div>
+
+        <!-- Live Auto-Template Text Preview & Submit Status -->
+        <div class="receipt-preview-card" style="grid-column: span 2;">
+          <div class="receipt-header">
+            <span>★ AUTO-GENERATED ORDER POST TEMPLATE &amp; GOOGLE SHEETS SYNC</span>
+            <button type="button" id="downloadReceiptTxtBtn" class="btn-mini-pin">⬇ SAVE .TXT</button>
+          </div>
+          <pre id="liveOrderTemplatePreview" class="receipt-pre"></pre>
+          <div class="receipt-footer-hint">
+            ✓ Orders submitted here automatically sync to your Google Sheet and copy to the customer's clipboard for Messenger/SMS.
+          </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="Logo-removebg-preview.png" alt="Crack & Cup Logo" class="footer-logo" />
+          <div>
+            <h4>CRACK <span class="amp-clean">&amp;</span> CUP</h4>
+            <p>RAGE ROOM &amp; COFFEE SHOP • “COME TO LOSE THE BLUES, AND STAY FOR THE BREWS.”</p>
+          </div>
+        </div>
+        <div class="footer-tags">
+          <span>#CRACKANDCUP</span>
+          <span>#RAGEROOMCAFE</span>
+          <span>#LOSETHEBLUES</span>
+          <span>#STAYFORTHEBREWS</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastNotice" class="toast-notice hidden" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
