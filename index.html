@@ -127,6 +127,9 @@
         </div>
 
         <div class="header-actions">
+          <button type="button" id="toggleMobileModeBtn" class="btn-tag" title="Preview the streamlined button-only Mobile Mode layout">
+            📱 VIEW: <strong id="mobileModeLabel">AUTO</strong>
+          </button>
           <button type="button" id="togglePhotoModeBtn" class="btn-tag" title="Switch food photos between B&W Graffiti mode and Full Color">
             ◐ PHOTO FILTER: <strong id="photoModeLabel">B&amp;W INK</strong>
           </button>
@@ -368,19 +371,19 @@
                     <!-- Customer Name -->
                     <div class="form-cell">
                       <label for="custName">1. CUSTOMER NAME / NICKNAME *</label>
-                      <input type="text" id="custName" class="input-brutal" placeholder="e.g. Juan Dela Cruz" required />
+                      <input type="text" id="custName" class="input-brutal" placeholder="Customer Name / Nickname *" required />
                     </div>
 
                     <!-- Contact Number -->
                     <div class="form-cell">
                       <label for="custPhone">2. CONTACT NUMBER (SMS / GCASH) *</label>
-                      <input type="tel" id="custPhone" class="input-brutal" placeholder="e.g. 0917 123 4567" required />
+                      <input type="tel" id="custPhone" class="input-brutal" placeholder="Contact Number (SMS / GCash) *" required />
                     </div>
 
                     <!-- Messenger / IG Handle -->
                     <div class="form-cell">
                       <label for="custSocial">3. FB MESSENGER / IG HANDLE</label>
-                      <input type="text" id="custSocial" class="input-brutal" placeholder="e.g. fb.com/juandelacruz or @juan" />
+                      <input type="text" id="custSocial" class="input-brutal" placeholder="FB Messenger / IG Handle (Optional)" />
                     </div>
 
                     <!-- Order Mode & Payment -->
@@ -409,19 +412,19 @@
                           📍 PIN MY CURRENT GPS LOCATION
                         </button>
                       </div>
-                      <input type="text" id="custLocation" class="input-brutal" placeholder="House/Unit #, Street, Subdivision/Barangay, City (or paste Google Maps link)" required />
+                      <input type="text" id="custLocation" class="input-brutal" placeholder="Complete Delivery Address / Location *" required />
                     </div>
 
                     <!-- Landmark / Special Delivery Instructions -->
                     <div class="form-cell">
                       <label for="custLandmark">6. NEAREST LANDMARK / GATE COLOR</label>
-                      <input type="text" id="custLandmark" class="input-brutal" placeholder="e.g. Near Brgy Hall, black gate" />
+                      <input type="text" id="custLandmark" class="input-brutal" placeholder="Nearest Landmark / Gate Color" />
                     </div>
 
                     <!-- Preferred Time / Notes -->
                     <div class="form-cell">
                       <label for="custTime">7. PREFERRED TIME / EXTRA NOTES</label>
-                      <input type="text" id="custTime" class="input-brutal" placeholder="e.g. ASAP / 4:00 PM / Extra utensils" />
+                      <input type="text" id="custTime" class="input-brutal" placeholder="Preferred Time / Extra Notes" />
                     </div>
                   </div>
                 </td>
