@@ -478,6 +478,17 @@ function attachEventListeners() {
     });
   });
 
+  // Mobile Mode Preview Toggle (Automatic via CSS @media <=768px, or manual preview on desktop)
+  const toggleMobileModeBtn = document.getElementById('toggleMobileModeBtn');
+  const mobileModeLabel = document.getElementById('mobileModeLabel');
+  if (toggleMobileModeBtn && mobileModeLabel) {
+    toggleMobileModeBtn.addEventListener('click', () => {
+      const isForcedMobile = document.body.classList.toggle('mobile-mode');
+      mobileModeLabel.textContent = isForcedMobile ? 'MOBILE' : 'AUTO';
+      showToast(isForcedMobile ? '📱 Mobile Mode active (subtitles hidden, button-only layout)' : '🖥️ Adaptive Auto View active');
+    });
+  }
+
   // Photo B&W vs Color Toggle
   const togglePhotoModeBtn = document.getElementById('togglePhotoModeBtn');
   const photoModeLabel = document.getElementById('photoModeLabel');
@@ -725,7 +736,27 @@ function attachEventListeners() {
   document.getElementById('sendOrderDirectBtn').addEventListener('click', handleNoVpsOrderSubmit);
 }
 
+// Anti-Spam / Anti-DDoS & Streamliner State
+let isSubmittingOrder = false;
+let lastSubmittedFingerprint = '';
+let submitCooldownUntil = 0;
+
 function validateOrderForm() {
+  // 1. Honeypot Bot Trap Check
+  const honeypot = document.getElementById('websiteHoneypot');
+  if (honeypot && honeypot.value.trim() !== '') {
+    // Silently reject automated bot submissions
+    return false;
+  }
+
+  // 2. Rate-Limit Cooldown Check (Prevents button-mashing / DDoS floods from a single client)
+  const now = Date.now();
+  if (now < submitCooldownUntil) {
+    const secsLeft = Math.ceil((submitCooldownUntil - now) / 1000);
+    showToast(`⏳ Please wait ${secsLeft}s before sending another order.`);
+    return false;
+  }
+
   if (orderRows.length === 0) {
     showToast('⚠ Please add at least 1 item to your order table first!');
     return false;
@@ -748,102 +779,111 @@ function validateOrderForm() {
   return true;
 }
 
-async function handleNoVpsOrderSubmit() {
-  if (!validateOrderForm()) return;
-
-  const btn = document.getElementById('sendOrderDirectBtn');
-  const originalLabel = btn.innerHTML;
-  btn.innerHTML = '⏳ SENDING ORDER...';
-  btn.disabled = true;
-
-  const templateText = generateOrderTemplateText();
-  const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
-  const totalAmount = orderRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.unitPrice) || 0)), 0);
-
-  const discordWebhook = localStorage.getItem('cnc_discord_webhook') || '';
-  const web3FormsKey = localStorage.getItem('cnc_web3forms_key') || '';
-  const customWebhook = localStorage.getItem('cnc_custom_webhook') || '';
-
-  let sentChannels = [];
-
-  try {
-    // Channel A: Permanent Google Sheets Apps Script Webhook
-    const targetGoogleSheetsUrl = GOOGLE_SHEETS_WEBHOOK_URL || customWebhook;
-    if (targetGoogleSheetsUrl) {
-      await fetch(targetGoogleSheetsUrl, {
+// Streamlined Retry Queue with Jittered Exponential Backoff (Handles high-concurrency bursts smoothly)
+async function postOrderWithStreamliner(url, payloadObj, maxRetries = 3) {
+  const bodyStr = JSON.stringify(payloadObj);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          orderRef: orderReference,
-          timestamp: new Date().toLocaleString('en-PH'),
-          items: orderRows,
-          itemsSummary: orderRows.map(r => `${r.qty}x ${r.customName}${r.notes ? ' (' + r.notes + ')' : ''} [₱${r.qty * r.unitPrice}]`).join(', '),
-          totalQty,
-          totalAmount,
-          customer: {
-            name: custName.value.trim(),
-            phone: custPhone.value.trim(),
-            social: custSocial.value.trim(),
-            fulfillment: custFulfillment.value,
-            payment: custPayment.value,
-            location: custLocation.value.trim(),
-            landmark: custLandmark.value.trim(),
-            timeNote: custTime.value.trim()
-          },
-          formattedReceipt: templateText
-        })
+        body: bodyStr
       });
-      sentChannels.push('Google Sheets');
+      return true;
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      // Jittered backoff (e.g. 900ms, 2100ms, 4200ms) so concurrent bursts don't collide
+      const jitter = Math.floor(Math.random() * 400);
+      const delayMs = attempt * 1100 + jitter;
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+  }
+}
+
+async function handleNoVpsOrderSubmit() {
+  if (isSubmittingOrder) return;
+  if (!validateOrderForm()) return;
+
+  const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
+  const totalAmount = orderRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.unitPrice) || 0)), 0);
+
+  // Duplicate Order Fingerprint Guard (Prevents accidental double-submit of identical order)
+  const currentFingerprint = JSON.stringify({
+    name: custName.value.trim().toLowerCase(),
+    phone: custPhone.value.trim(),
+    location: custLocation.value.trim().toLowerCase(),
+    items: orderRows.map(r => `${r.itemId}:${r.qty}:${r.notes}`)
+  });
+
+  if (currentFingerprint === lastSubmittedFingerprint) {
+    showToast('✓ This exact order was already submitted! Edit items if sending a new order.');
+    return;
+  }
+
+  isSubmittingOrder = true;
+  const btn = document.getElementById('sendOrderDirectBtn');
+  const originalLabel = '🚀 SUBMIT ORDER NOW';
+  btn.innerHTML = '⏳ QUEUING ORDER...';
+  btn.disabled = true;
+
+  const submittedRef = orderReference;
+  const templateText = generateOrderTemplateText();
+
+  try {
+    if (GOOGLE_SHEETS_WEBHOOK_URL) {
+      await postOrderWithStreamliner(GOOGLE_SHEETS_WEBHOOK_URL, {
+        orderRef: submittedRef,
+        timestamp: new Date().toLocaleString('en-PH'),
+        items: orderRows,
+        itemsSummary: orderRows.map(r => `${r.qty}x ${r.customName}${r.notes ? ' (' + r.notes + ')' : ''} [₱${r.qty * r.unitPrice}]`).join(', '),
+        totalQty,
+        totalAmount,
+        customer: {
+          name: custName.value.trim(),
+          phone: custPhone.value.trim(),
+          social: custSocial.value.trim(),
+          fulfillment: custFulfillment.value,
+          payment: custPayment.value,
+          location: custLocation.value.trim(),
+          landmark: custLandmark.value.trim(),
+          timeNote: custTime.value.trim()
+        },
+        formattedReceipt: templateText
+      });
     }
 
-    // Channel B: Discord Webhook (if optionally configured)
-    if (discordWebhook) {
-      const res = await fetch(discordWebhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: 'CRACK & CUP Order Bot',
-          content: `🔔 **NEW ORDER RECEIVED (${orderReference})** — **₱${totalAmount.toLocaleString()}**\n\`\`\`\n${templateText}\n\`\`\``
-        })
-      });
-      if (res.ok) sentChannels.push('Discord Staff Channel');
-    }
-
-    // Channel C: Web3Forms (Direct to Email Inbox)
-    if (web3FormsKey) {
-      const res = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          access_key: web3FormsKey,
-          subject: `New Crack & Cup Order ${orderReference} from ${custName.value.trim()} (₱${totalAmount})`,
-          from_name: 'Crack & Cup Ordering Website',
-          customer_name: custName.value.trim(),
-          customer_phone: custPhone.value.trim(),
-          customer_location: custLocation.value.trim(),
-          total_items: totalQty,
-          total_amount: `₱${totalAmount}`,
-          message: templateText
-        })
-      });
-      if (res.ok) sentChannels.push('Shop Email (Web3Forms)');
-    }
-
-    // Always copy the formatted template to clipboard so the customer has it ready
+    // Save fingerprint, start 25-second anti-spam cooldown, and rotate Order Ref for next order
+    lastSubmittedFingerprint = currentFingerprint;
+    submitCooldownUntil = Date.now() + 25000;
     await copyToClipboard(templateText);
 
-    if (sentChannels.length > 0) {
-      showToast(`🎉 Order ${orderReference} logged to Google Sheets! Receipt copied.`);
-    } else {
-      showToast(`✓ Order ${orderReference} formatted & copied to clipboard!`);
-    }
+    showToast(`🎉 Order ${submittedRef} logged to Google Sheets! Receipt copied.`);
+
+    // Generate fresh Order Ref for any subsequent order
+    orderReference = generateOrderRef();
+    orderRefCode.textContent = orderReference;
+    updateTotalsAndTemplate();
+
+    // Visual Cooldown Countdown on Button to prevent double-clicking
+    let remaining = 25;
+    const cdInterval = setInterval(() => {
+      remaining -= 1;
+      if (remaining > 0) {
+        btn.innerHTML = `✓ SENT (${submittedRef}) • WAIT ${remaining}s`;
+      } else {
+        clearInterval(cdInterval);
+        btn.innerHTML = originalLabel;
+        btn.disabled = false;
+      }
+    }, 1000);
   } catch (err) {
     await copyToClipboard(templateText);
-    showToast(`Order copied to clipboard! (Logging encountered network hiccup)`);
-  } finally {
+    showToast(`Order copied to clipboard! (Network busy, please try again)`);
     btn.innerHTML = originalLabel;
     btn.disabled = false;
+  } finally {
+    isSubmittingOrder = false;
   }
 }
 

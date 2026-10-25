@@ -426,6 +426,12 @@
                       <label for="custTime">7. PREFERRED TIME / EXTRA NOTES</label>
                       <input type="text" id="custTime" class="input-brutal" placeholder="Preferred Time / Extra Notes" />
                     </div>
+
+                    <!-- Anti-Bot Honeypot Trap (Hidden from real users, catches automated spam bots) -->
+                    <div class="sr-only" aria-hidden="true">
+                      <label for="websiteHoneypot">Leave this field blank</label>
+                      <input type="text" id="websiteHoneypot" name="websiteHoneypot" tabindex="-1" autocomplete="off" />
+                    </div>
                   </div>
                 </td>
               </tr>
