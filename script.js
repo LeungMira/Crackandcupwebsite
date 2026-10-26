@@ -54,10 +54,34 @@ const orderRefCode = document.getElementById('orderRefCode');
 const orderDateStamp = document.getElementById('orderDateStamp');
 const liveOrderTemplatePreview = document.getElementById('liveOrderTemplatePreview');
 
-// Mobile Corner Buttons (Matches User's Bare-Bones Mobile UI Sketch)
+// Mobile Corner Buttons & Logo Loader (Matches User's Bare-Bones Mobile UI Sketch)
+const mobileLogoLoader = document.getElementById('mobileLogoLoader');
 const mobileCornerMenuBtn = document.getElementById('mobileCornerMenuBtn');
 const mobileCornerOrderBtn = document.getElementById('mobileCornerOrderBtn');
 const exitMobilePreviewBtn = document.getElementById('exitMobilePreviewBtn');
+let hasShownMobileSplash = false;
+let mobileLoaderTimer = null;
+
+function triggerMobileLogoLoader() {
+  if (!mobileLogoLoader) return;
+  clearTimeout(mobileLoaderTimer);
+  mobileLogoLoader.classList.remove('hidden', 'loader-fade-out');
+
+  // Restart fill bar animation cleanly
+  const fillEl = mobileLogoLoader.querySelector('.mobile-loader-fill');
+  if (fillEl) {
+    fillEl.style.animation = 'none';
+    void fillEl.offsetWidth;
+    fillEl.style.animation = '';
+  }
+
+  mobileLoaderTimer = setTimeout(() => {
+    mobileLogoLoader.classList.add('loader-fade-out');
+    setTimeout(() => {
+      mobileLogoLoader.classList.add('hidden');
+    }, 340);
+  }, 850);
+}
 
 // Contact & Location Inputs at Bottom of Table (All Required, No Preferred Time)
 const custName = document.getElementById('custName');
@@ -78,8 +102,9 @@ function detectIfMobileDevice() {
   return uaMobile || smallViewport || touchTablet;
 }
 
-function applyMobileModeState() {
+function applyMobileModeState(forceLoader = false) {
   const isMobile = isManualMobilePreview || detectIfMobileDevice();
+  const wasMobile = document.body.classList.contains('mobile-mode');
   document.body.classList.toggle('mobile-mode', isMobile);
 
   const mobileModeLabel = document.getElementById('mobileModeLabel');
@@ -93,9 +118,16 @@ function applyMobileModeState() {
   }
 
   if (isMobile) {
+    if (forceLoader || !hasShownMobileSplash || !wasMobile) {
+      hasShownMobileSplash = true;
+      triggerMobileLogoLoader();
+    }
     setMobilePage(activeMobilePage);
   } else {
     document.body.classList.remove('mobile-page-menu', 'mobile-page-order');
+    if (mobileLogoLoader) {
+      mobileLogoLoader.classList.add('hidden');
+    }
   }
 }
 
@@ -234,8 +266,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   })}`;
 
   // Apply Mobile Detection immediately on load & on resize
-  applyMobileModeState();
-  window.addEventListener('resize', applyMobileModeState);
+  applyMobileModeState(true);
+  window.addEventListener('resize', () => applyMobileModeState(false));
 
   attachEventListeners();
 
@@ -734,7 +766,7 @@ function attachEventListeners() {
   if (toggleMobileModeBtn) {
     toggleMobileModeBtn.addEventListener('click', () => {
       isManualMobilePreview = !isManualMobilePreview;
-      applyMobileModeState();
+      applyMobileModeState(isManualMobilePreview);
       showToast(
         document.body.classList.contains('mobile-mode')
           ? '📱 Bare-Bones Mobile UI active (Menu / Order corner tabs)'
