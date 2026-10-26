@@ -1,82 +1,31 @@
 /**
  * CRACK & CUP — RAGE ROOM & COFFEE SHOP
- * Interactive Auto-Template Order Table, Menu Quick-Add & No-VPS Order Sender
+ * 100% Server-Authoritative Menu & Pricing via Supabase PostgreSQL
  */
 
-// 1. CONFIGURATION
-// Permanent Google Sheets Apps Script Webhook URL (Serverless Order Logging)
-const GOOGLE_SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzQuLoWNTYeV6tNPpuCvTpCvGVlz0kJ6kYbhQH7jB5tDUv6IgYMhcbVMifCg65hp5XzCQ/exec';
+// 1. CONFIGURATION (Supabase Serverless PostgreSQL Database)
+const SUPABASE_URL = 'https://nfxyhsgfttvrmkxmhcvb.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Gj_YQP5Hj898a_1Uf52rQA_UrQGqq3S';
 
-// 2. MENU CATALOG (Only Pictured Food Items — No Smash Room Add-ons; Unpictured items replaced with "More items soon!")
-const MENU_ITEMS = [
-  {
-    id: 'bowl-pork-bbq',
-    name: 'Pork BBQ Chao Fan Bowl',
-    category: 'Chao Fan Bowls',
-    price: 120,
-    image: 'assets/pork-bbq-bowl.png',
-    desc: 'Smoky glazed grilled pork belly slices over wok-charred egg chao fan.'
-  },
-  {
-    id: 'bowl-sisig',
-    name: 'Crispy Pork Sisig Rice Bowl',
-    category: 'Chao Fan Bowls',
-    price: 99,
-    image: 'assets/sisig-bowl.jpg',
-    desc: 'Savory sizzling sisig topped with a sunny-side egg, scallions & sesame.'
-  },
-  {
-    id: 'bowl-cheesy-poppers',
-    name: 'Cheesy Chicken Poppers Chao Fan',
-    category: 'Chao Fan Bowls',
-    price: 79,
-    image: 'assets/cheesy-poppers-bowl.jpg',
-    desc: 'Crunchy golden chicken poppers drizzled with rich melted cheese sauce.'
-  },
-  {
-    id: 'bowl-hungarian',
-    name: 'Cheesy Hungarian Sausage Bowl',
-    category: 'Chao Fan Bowls',
-    price: 89,
-    image: 'assets/hungarian-bowl.jpg',
-    desc: 'Juicy char-grilled Hungarian sausage with smoky cheese drizzle over chao fan.'
-  },
-  {
-    id: 'bowl-creamy-chicken',
-    name: 'Creamy Garlic Chicken Bowl',
-    category: 'Chao Fan Bowls',
-    price: 95,
-    image: 'assets/creamy-chicken-bowl.jpg',
-    desc: 'Tender chicken bites in herbed garlic-cream glaze over egg fried rice.'
-  },
-  {
-    id: 'bowl-adobo',
-    name: 'Classic Pork Adobo Glaze Bowl',
-    category: 'Chao Fan Bowls',
-    price: 99,
-    image: 'assets/adobo-bowl.jpg',
-    desc: 'Slow-braised savory garlic pork adobo cubes with bay leaf & sesame.'
-  },
-  {
-    id: 'bowl-liempo',
-    name: 'Grilled Liempo Chao Fan',
-    category: 'Chao Fan Bowls',
-    price: 115,
-    image: 'assets/liempo-bowl.jpg',
-    desc: 'Char-grilled marinated pork belly strips served over signature chao fan.'
-  }
-];
+// Menu is strictly obtained from the server (Zero hardcoded client fallback menu!)
+let MENU_ITEMS = [];
+let menuLoadState = 'loading'; // 'loading' | 'loaded' | 'error'
 
 // 2. APPLICATION STATE
 let orderRows = [];
 let activeCategory = 'all';
-let cardQuantities = {}; // tracks quick-add card qty before adding
+let cardQuantities = {};
 let orderReference = generateOrderRef();
+let isManualMobilePreview = false;
+let activeMobilePage = 'menu'; // 'menu' | 'order'
 
-// Initialize default card quantities to 1
-MENU_ITEMS.forEach(item => {
-  cardQuantities[item.id] = 1;
-});
+function initCardQuantities() {
+  MENU_ITEMS.forEach(item => {
+    if (!cardQuantities[item.id]) {
+      cardQuantities[item.id] = 1;
+    }
+  });
+}
 
 function generateOrderRef() {
   const num = Math.floor(1000 + Math.random() * 9000);
@@ -85,12 +34,10 @@ function generateOrderRef() {
 
 // 3. DOM ELEMENTS
 const menuGrid = document.getElementById('menuGrid');
+const menuSection = document.getElementById('menu-section');
 const orderTableSection = document.getElementById('order-table-section');
 const orderNowPromptBox = document.getElementById('orderNowPromptBox');
 const quickItemSelect = document.getElementById('quickItemSelect');
-const customItemInputs = document.getElementById('customItemInputs');
-const customItemName = document.getElementById('customItemName');
-const customItemPrice = document.getElementById('customItemPrice');
 const builderQtyMinus = document.getElementById('builderQtyMinus');
 const builderQtyPlus = document.getElementById('builderQtyPlus');
 const builderQtyInput = document.getElementById('builderQtyInput');
@@ -98,28 +45,187 @@ const builderComputedAmount = document.getElementById('builderComputedAmount');
 const addToTableBtn = document.getElementById('addToTableBtn');
 const addBlankRowBtn = document.getElementById('addBlankRowBtn');
 const tableFooterAddBtn = document.getElementById('tableFooterAddBtn');
-
 const orderTableBody = document.getElementById('orderTableBody');
 const summaryTotalQty = document.getElementById('summaryTotalQty');
 const summaryTotalAmount = document.getElementById('summaryTotalAmount');
 const headerCartCount = document.getElementById('headerCartCount');
+const mobileOrderCountBadge = document.getElementById('mobileOrderCountBadge');
 const orderRefCode = document.getElementById('orderRefCode');
 const orderDateStamp = document.getElementById('orderDateStamp');
 const liveOrderTemplatePreview = document.getElementById('liveOrderTemplatePreview');
 
-// Contact & Location Inputs at Bottom of Table
+// Mobile Corner Buttons (Matches User's Bare-Bones Mobile UI Sketch)
+const mobileCornerMenuBtn = document.getElementById('mobileCornerMenuBtn');
+const mobileCornerOrderBtn = document.getElementById('mobileCornerOrderBtn');
+const exitMobilePreviewBtn = document.getElementById('exitMobilePreviewBtn');
+
+// Contact & Location Inputs at Bottom of Table (All Required, No Preferred Time)
 const custName = document.getElementById('custName');
 const custPhone = document.getElementById('custPhone');
+const phoneVerifyBadge = document.getElementById('phoneVerifyBadge');
 const custSocial = document.getElementById('custSocial');
 const custFulfillment = document.getElementById('custFulfillment');
 const custPayment = document.getElementById('custPayment');
 const custLocation = document.getElementById('custLocation');
 const custLandmark = document.getElementById('custLandmark');
-const custTime = document.getElementById('custTime');
 const detectLocationBtn = document.getElementById('detectLocationBtn');
 
-// 4. INITIALIZATION
-document.addEventListener('DOMContentLoaded', () => {
+// 4. MOBILE DETECTION & BARE-BONES MOBILE UI SWITCHER
+function detectIfMobileDevice() {
+  const uaMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+  const smallViewport = window.innerWidth <= 768;
+  const touchTablet = (navigator.maxTouchPoints > 1 && window.innerWidth <= 900);
+  return uaMobile || smallViewport || touchTablet;
+}
+
+function applyMobileModeState() {
+  const isMobile = isManualMobilePreview || detectIfMobileDevice();
+  document.body.classList.toggle('mobile-mode', isMobile);
+
+  const mobileModeLabel = document.getElementById('mobileModeLabel');
+  if (mobileModeLabel) {
+    mobileModeLabel.textContent = isMobile ? 'MOBILE' : 'AUTO';
+  }
+
+  if (exitMobilePreviewBtn) {
+    const showExitBtn = isManualMobilePreview && !detectIfMobileDevice();
+    exitMobilePreviewBtn.classList.toggle('hidden', !showExitBtn);
+  }
+
+  if (isMobile) {
+    setMobilePage(activeMobilePage);
+  } else {
+    document.body.classList.remove('mobile-page-menu', 'mobile-page-order');
+  }
+}
+
+function setMobilePage(page) {
+  activeMobilePage = page === 'order' ? 'order' : 'menu';
+  document.body.classList.toggle('mobile-page-menu', activeMobilePage === 'menu');
+  document.body.classList.toggle('mobile-page-order', activeMobilePage === 'order');
+
+  if (mobileCornerMenuBtn) {
+    mobileCornerMenuBtn.classList.toggle('active', activeMobilePage === 'menu');
+  }
+  if (mobileCornerOrderBtn) {
+    mobileCornerOrderBtn.classList.toggle('active', activeMobilePage === 'order');
+  }
+
+  if (document.body.classList.contains('mobile-mode')) {
+    if (activeMobilePage === 'order') {
+      orderTableSection.classList.remove('hidden');
+    } else {
+      orderTableSection.classList.add('hidden');
+    }
+  }
+}
+
+// 5. GOOGLE LIBPHONENUMBER PH PHONE NUMBER VERIFICATION & FORMATTING
+function verifyAndFormatPHPhone(rawInput) {
+  const cleaned = String(rawInput || '').trim();
+  if (!cleaned) {
+    return { valid: false, error: 'Phone number is required.' };
+  }
+
+  // Reject obvious fake repeating numbers like 09000000000 or 09111111111
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  if (/(\d)\1{7,}/.test(digitsOnly)) {
+    return { valid: false, error: 'Invalid phone number (repeating digits).' };
+  }
+
+  // 1. Primary Verification via Google's libphonenumber (libphonenumber-js max bundle)
+  if (window.libphonenumber && typeof window.libphonenumber.parsePhoneNumberFromString === 'function') {
+    try {
+      const phoneObj = window.libphonenumber.parsePhoneNumberFromString(cleaned, 'PH');
+      if (!phoneObj || !phoneObj.isValid() || phoneObj.country !== 'PH') {
+        return {
+          valid: false,
+          error: 'Must be a valid Philippine phone number (e.g. 0917 123 4567 or +63 917 123 4567).'
+        };
+      }
+
+      const numType = phoneObj.getType ? phoneObj.getType() : 'MOBILE';
+      if (numType && !['MOBILE', 'FIXED_LINE', 'FIXED_LINE_OR_MOBILE'].includes(numType)) {
+        return {
+          valid: false,
+          error: 'Please enter a valid PH mobile or landline number.'
+        };
+      }
+
+      return {
+        valid: true,
+        e164: phoneObj.number, // +639171234567
+        formattedNational: phoneObj.formatNational(), // 0917 123 4567
+        formattedInternational: phoneObj.formatInternational() // +63 917 123 4567
+      };
+    } catch {
+      return { valid: false, error: 'Invalid Philippine phone number format.' };
+    }
+  }
+
+  // 2. Strict PH Regex Fallback if CDN fails to load
+  let normalizedDigits = digitsOnly;
+  if (normalizedDigits.startsWith('639') && normalizedDigits.length === 12) {
+    normalizedDigits = '0' + normalizedDigits.slice(2);
+  } else if (normalizedDigits.startsWith('9') && normalizedDigits.length === 10) {
+    normalizedDigits = '0' + normalizedDigits;
+  }
+
+  // Valid PH mobile prefixes: 0905-0999 (excluding 0900-0904)
+  if (/^09(0[5-9]|[1-9]\d)\d{7}$/.test(normalizedDigits)) {
+    const p1 = normalizedDigits.slice(0, 4);
+    const p2 = normalizedDigits.slice(4, 7);
+    const p3 = normalizedDigits.slice(7, 11);
+    return {
+      valid: true,
+      e164: `+63${normalizedDigits.slice(1)}`,
+      formattedNational: `${p1} ${p2} ${p3}`,
+      formattedInternational: `+63 ${normalizedDigits.slice(1, 4)} ${p2} ${p3}`
+    };
+  }
+
+  return {
+    valid: false,
+    error: 'Must be a valid PH number (e.g. 0917 123 4567 or +63 917 123 4567).'
+  };
+}
+
+function updatePhoneValidationUI(formatValueOnValid = false) {
+  const raw = custPhone.value.trim();
+  if (!raw) {
+    if (phoneVerifyBadge) {
+      phoneVerifyBadge.textContent = 'PH Format (09XX / +639XX)';
+      phoneVerifyBadge.className = 'phone-verify-badge';
+    }
+    custPhone.classList.remove('input-valid', 'input-invalid');
+    return false;
+  }
+
+  const check = verifyAndFormatPHPhone(raw);
+  if (check.valid) {
+    if (formatValueOnValid) {
+      custPhone.value = check.formattedNational;
+    }
+    if (phoneVerifyBadge) {
+      phoneVerifyBadge.textContent = `✓ VERIFIED PH (${check.e164})`;
+      phoneVerifyBadge.className = 'phone-verify-badge badge-valid';
+    }
+    custPhone.classList.add('input-valid');
+    custPhone.classList.remove('input-invalid');
+    return true;
+  } else {
+    if (phoneVerifyBadge) {
+      phoneVerifyBadge.textContent = '✕ INVALID PH FORMAT';
+      phoneVerifyBadge.className = 'phone-verify-badge badge-invalid';
+    }
+    custPhone.classList.add('input-invalid');
+    custPhone.classList.remove('input-valid');
+    return false;
+  }
+}
+
+// 6. INITIALIZATION & STRICT SERVER MENU RETRIEVAL
+document.addEventListener('DOMContentLoaded', async () => {
   orderRefCode.textContent = orderReference;
   orderDateStamp.textContent = `DATE: ${new Date().toLocaleDateString('en-PH', {
     month: 'short',
@@ -127,30 +233,142 @@ document.addEventListener('DOMContentLoaded', () => {
     year: 'numeric'
   })}`;
 
-  populateQuickItemSelect();
-  renderMenuGrid();
-  updateBuilderBarPreview();
-  orderRows = [
-    {
-      rowId: cryptoRowId(),
-      itemId: 'bowl-sisig',
-      customName: 'Crispy Pork Sisig Rice Bowl',
-      unitPrice: 99,
-      qty: 1,
-      notes: ''
-    }
-  ];
+  // Apply Mobile Detection immediately on load & on resize
+  applyMobileModeState();
+  window.addEventListener('resize', applyMobileModeState);
 
-  renderOrderTable();
   attachEventListeners();
+
+  // Render initial loading state and fetch menu strictly from server
+  renderMenuGrid();
+  renderOrderTable();
+  setOrderControlsEnabled(false);
+
+  await syncMenuFromServer();
 });
+
+function setOrderControlsEnabled(enabled) {
+  [quickItemSelect, builderQtyMinus, builderQtyPlus, builderQtyInput, addToTableBtn, addBlankRowBtn, tableFooterAddBtn].forEach(el => {
+    if (el) el.disabled = !enabled;
+  });
+  const sampleBtn = document.getElementById('loadSampleOrderBtn');
+  if (sampleBtn) sampleBtn.disabled = !enabled;
+}
+
+async function syncMenuFromServer() {
+  menuLoadState = 'loading';
+  renderMenuGrid();
+  renderOrderTable();
+  setOrderControlsEnabled(false);
+
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    menuLoadState = 'error';
+    renderMenuGrid();
+    renderOrderTable();
+    return;
+  }
+
+  try {
+    const cleanBaseUrl = SUPABASE_URL.trim().replace(/\/+$/, '');
+    const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY };
+    if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
+      headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+    const res = await fetch(
+      `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc`,
+      { headers, signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const rawItems = await res.json();
+    const serverItems = Array.isArray(rawItems)
+      ? rawItems.filter(r => r.is_available !== false && r.available !== false)
+      : [];
+
+    if (serverItems.length === 0) {
+      throw new Error('Empty menu returned from server');
+    }
+
+    const defaultVisuals = {
+      'bowl-pork-bbq': { image: 'assets/pork-bbq-bowl.png', desc: 'Smoky glazed grilled pork belly slices over wok-charred egg chao fan.' },
+      'bowl-sisig': { image: 'assets/sisig-bowl.jpg', desc: 'Savory sizzling sisig topped with a sunny-side egg, scallions & sesame.' },
+      'bowl-cheesy-poppers': { image: 'assets/cheesy-poppers-bowl.jpg', desc: 'Crunchy golden chicken poppers drizzled with rich melted cheese sauce.' },
+      'bowl-hungarian': { image: 'assets/hungarian-bowl.jpg', desc: 'Juicy char-grilled Hungarian sausage with smoky cheese drizzle over chao fan.' },
+      'bowl-creamy-chicken': { image: 'assets/creamy-chicken-bowl.jpg', desc: 'Tender chicken bites in herbed garlic-cream glaze over egg fried rice.' },
+      'bowl-adobo': { image: 'assets/adobo-bowl.jpg', desc: 'Slow-braised savory garlic pork adobo cubes with bay leaf & sesame.' },
+      'bowl-liempo': { image: 'assets/liempo-bowl.jpg', desc: 'Char-grilled marinated pork belly strips served over signature chao fan.' },
+      'b1': { image: 'assets/pork-bbq-bowl.png', desc: 'Smoky glazed grilled pork belly slices over wok-charred egg chao fan.' },
+      'b2': { image: 'assets/sisig-bowl.jpg', desc: 'Savory sizzling sisig topped with a sunny-side egg, scallions & sesame.' },
+      'b3': { image: 'assets/cheesy-poppers-bowl.jpg', desc: 'Crunchy golden chicken poppers drizzled with rich melted cheese sauce.' },
+      'b4': { image: 'assets/hungarian-bowl.jpg', desc: 'Juicy char-grilled Hungarian sausage with smoky cheese drizzle over chao fan.' },
+      'b5': { image: 'assets/creamy-chicken-bowl.jpg', desc: 'Tender chicken bites in herbed garlic-cream glaze over egg fried rice.' },
+      'b6': { image: 'assets/adobo-bowl.jpg', desc: 'Slow-braised savory garlic pork adobo cubes with bay leaf & sesame.' },
+      'b7': { image: 'assets/liempo-bowl.jpg', desc: 'Char-grilled marinated pork belly strips served over signature chao fan.' }
+    };
+
+    MENU_ITEMS = serverItems.map(row => {
+      const vis = defaultVisuals[row.id] || { image: 'assets/sisig-bowl.jpg', desc: 'Freshly prepared Crack & Cup signature rice bowl.' };
+      return {
+        id: row.id,
+        name: row.name,
+        category: row.category || 'Chao Fan Bowls',
+        price: Number(row.price),
+        image: row.image || vis.image,
+        desc: row.description || vis.desc
+      };
+    });
+
+    menuLoadState = 'loaded';
+    initCardQuantities();
+    populateQuickItemSelect();
+    updateBuilderBarPreview();
+
+    if (orderRows.length === 0 && MENU_ITEMS.length > 0) {
+      orderRows = [
+        {
+          rowId: cryptoRowId(),
+          itemId: MENU_ITEMS[0].id,
+          qty: 1,
+          notes: ''
+        }
+      ];
+    }
+
+    setOrderControlsEnabled(true);
+    renderMenuGrid();
+    renderOrderTable();
+  } catch {
+    MENU_ITEMS = [];
+    menuLoadState = 'error';
+    setOrderControlsEnabled(false);
+    renderMenuGrid();
+    renderOrderTable();
+  }
+}
 
 function cryptoRowId() {
   return 'row-' + Math.random().toString(36).substring(2, 9);
 }
 
-// Helper to reveal the Ordering Table when any ORDER NOW button is clicked
+// Look up authoritative item object from MENU_ITEMS by ID
+function getMenuItemById(itemId) {
+  return MENU_ITEMS.find(m => m.id === itemId) || MENU_ITEMS[0] || { id: '', name: 'Unavailable', price: 0 };
+}
+
+// Reveal / Hide Ordering Table
 function openOrderingTable(scrollToIt = true) {
+  if (document.body.classList.contains('mobile-mode')) {
+    setMobilePage('order');
+    return;
+  }
   orderTableSection.classList.remove('hidden');
   if (orderNowPromptBox) {
     orderNowPromptBox.classList.add('hidden');
@@ -161,15 +379,24 @@ function openOrderingTable(scrollToIt = true) {
 }
 
 function hideOrderingTable() {
+  if (document.body.classList.contains('mobile-mode')) {
+    setMobilePage('menu');
+    return;
+  }
   orderTableSection.classList.add('hidden');
   if (orderNowPromptBox) {
     orderNowPromptBox.classList.remove('hidden');
   }
-  document.getElementById('menu-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  menuSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// 5. POPULATE QUICK SELECT DROPDOWN
+// 7. POPULATE QUICK SELECT DROPDOWN (Only Server-Verified Menu Items)
 function populateQuickItemSelect() {
+  if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) {
+    quickItemSelect.innerHTML = `<option value="">ERROR MENU FAILED TO RETRIEVE</option>`;
+    return;
+  }
+
   const categories = [...new Set(MENU_ITEMS.map(i => i.category))];
   let html = '';
 
@@ -181,15 +408,32 @@ function populateQuickItemSelect() {
     html += `</optgroup>`;
   });
 
-  html += `<optgroup label="★ CUSTOM FOOD / DRINK ITEM">`;
-  html += `<option value="custom">✎ Custom Item / Drink (Type Name & Price)...</option>`;
-  html += `</optgroup>`;
-
   quickItemSelect.innerHTML = html;
 }
 
-// 6. RENDER VISUAL MENU CARDS (Only Pictured Items + "(More items soon!)" Card)
+// 8. RENDER VISUAL MENU CARDS (Or Server Error Message on Failure!)
 function renderMenuGrid() {
+  if (menuLoadState === 'loading') {
+    menuGrid.innerHTML = `
+      <div class="server-menu-status-box loading-box">
+        <p class="server-status-title">⏳ RETRIEVING MENU FROM SERVER...</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (menuLoadState === 'error' || MENU_ITEMS.length === 0) {
+    menuGrid.innerHTML = `
+      <div class="server-menu-status-box error-box" role="alert">
+        <p class="server-error-text">ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.</p>
+        <button type="button" class="btn-brutal btn-primary retry-menu-btn" data-action="retry-menu">
+          ↻ TRY AGAIN
+        </button>
+      </div>
+    `;
+    return;
+  }
+
   const filtered = activeCategory === 'all'
     ? MENU_ITEMS
     : MENU_ITEMS.filter(item => item.category === activeCategory);
@@ -209,7 +453,6 @@ function renderMenuGrid() {
           <h3 class="menu-item-title">${item.name}</h3>
           <p class="menu-item-desc">${item.desc}</p>
 
-          <!-- Button that adds item to table + button next to it for Quantity & Amount -->
           <div class="menu-card-actions">
             <button type="button" class="card-add-btn" data-action="card-add" data-id="${item.id}">
               + ADD TO TABLE
@@ -226,7 +469,6 @@ function renderMenuGrid() {
     `;
   }).join('');
 
-  // Always include the "(More items soon!)" card in the menu grid
   const moreSoonCardHtml = `
     <article class="more-soon-card">
       <span class="more-soon-badge">★ STAY TUNED ★</span>
@@ -240,71 +482,52 @@ function renderMenuGrid() {
   menuGrid.innerHTML = cardsHtml + moreSoonCardHtml;
 }
 
-// 7. UPDATE TOP BUILDER BAR (Quantity & Amount Pill next to Add Item button)
-function getSelectedBuilderItem() {
-  const val = quickItemSelect.value;
-  if (val === 'custom') {
-    const name = customItemName.value.trim() || 'Custom Order Item';
-    const price = Math.max(0, parseFloat(customItemPrice.value) || 0);
-    return { id: 'custom', name, price };
-  }
-  const found = MENU_ITEMS.find(i => i.id === val) || MENU_ITEMS[0];
-  return { id: found.id, name: found.name, price: found.price };
-}
-
+// 9. UPDATE TOP BUILDER BAR
 function updateBuilderBarPreview() {
-  const isCustom = quickItemSelect.value === 'custom';
-  customItemInputs.classList.toggle('hidden', !isCustom);
-
-  const item = getSelectedBuilderItem();
-  const qty = Math.max(1, parseInt(builderQtyInput.value, 10) || 1);
+  if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) {
+    builderComputedAmount.textContent = '₱0';
+    return;
+  }
+  const item = getMenuItemById(quickItemSelect.value);
+  const qty = Math.max(1, Math.min(30, parseInt(builderQtyInput.value, 10) || 1));
   const amount = item.price * qty;
   builderComputedAmount.textContent = `₱${amount.toLocaleString()}`;
 }
 
-// 8. ADD ITEM TO ORDER TABLE
-function addItemToOrderTable(itemId, qty = 1, customName = '', customPrice = 0, notes = '') {
-  const cleanQty = Math.max(1, parseInt(qty, 10) || 1);
-
-  if (itemId !== 'custom') {
-    const menuObj = MENU_ITEMS.find(m => m.id === itemId);
-    if (!menuObj) return;
-
-    const existingRow = orderRows.find(r => r.itemId === itemId && (!notes || r.notes === notes));
-    if (existingRow) {
-      existingRow.qty += cleanQty;
-      renderOrderTable();
-      showToast(`Updated: ${existingRow.qty}x ${menuObj.name} (₱${existingRow.qty * existingRow.unitPrice})`);
-      return;
-    }
-
-    orderRows.push({
-      rowId: cryptoRowId(),
-      itemId: menuObj.id,
-      customName: menuObj.name,
-      unitPrice: menuObj.price,
-      qty: cleanQty,
-      notes: notes || ''
-    });
-    renderOrderTable();
-    showToast(`Added to table: ${cleanQty}x ${menuObj.name} (₱${cleanQty * menuObj.price})`);
-  } else {
-    const finalName = customName || 'Custom Item';
-    const finalPrice = Math.max(0, parseFloat(customPrice) || 0);
-    orderRows.push({
-      rowId: cryptoRowId(),
-      itemId: 'custom',
-      customName: finalName,
-      unitPrice: finalPrice,
-      qty: cleanQty,
-      notes: notes || ''
-    });
-    renderOrderTable();
-    showToast(`Added custom item: ${cleanQty}x ${finalName}`);
+// 10. ADD ITEM TO ORDER TABLE
+function addItemToOrderTable(itemId, qty = 1, notes = '') {
+  if (menuLoadState !== 'loaded') {
+    showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
+    return;
   }
+  const cleanQty = Math.max(1, Math.min(30, parseInt(qty, 10) || 1));
+  const menuObj = MENU_ITEMS.find(m => m.id === itemId);
+  if (!menuObj) return;
+
+  const existingRow = orderRows.find(r => r.itemId === itemId && (!notes || r.notes === notes));
+  if (existingRow) {
+    existingRow.qty = Math.min(30, existingRow.qty + cleanQty);
+    renderOrderTable();
+    showToast(`Updated: ${existingRow.qty}x ${menuObj.name} (₱${existingRow.qty * menuObj.price})`);
+    return;
+  }
+
+  if (orderRows.length >= 20) {
+    showToast('⚠ Submission limiter: Maximum 20 line items per order.');
+    return;
+  }
+
+  orderRows.push({
+    rowId: cryptoRowId(),
+    itemId: menuObj.id,
+    qty: cleanQty,
+    notes: notes || ''
+  });
+  renderOrderTable();
+  showToast(`Added to table: ${cleanQty}x ${menuObj.name} (₱${cleanQty * menuObj.price})`);
 }
 
-// 9. RENDER THE ORDER FILLOUT TABLE
+// 11. RENDER THE ORDER FILLOUT TABLE
 function buildRowSelectOptions(selectedId) {
   let html = '';
   const categories = [...new Set(MENU_ITEMS.map(i => i.category))];
@@ -316,45 +539,64 @@ function buildRowSelectOptions(selectedId) {
     });
     html += `</optgroup>`;
   });
-  const isCustom = selectedId === 'custom' ? 'selected' : '';
-  html += `<optgroup label="Custom"><option value="custom" ${isCustom}>✎ Custom Item / Drink...</option></optgroup>`;
   return html;
 }
 
 function renderOrderTable() {
+  if (menuLoadState === 'loading') {
+    orderTableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono); font-weight:700;">
+          ⏳ Retrieving official menu &amp; prices from server...
+        </td>
+      </tr>
+    `;
+    updateTotalsAndTemplate();
+    return;
+  }
+
+  if (menuLoadState === 'error' || MENU_ITEMS.length === 0) {
+    orderTableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono); font-weight:700;">
+          <div class="table-error-banner">
+            <p>ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.</p>
+            <button type="button" class="btn-brutal btn-primary retry-menu-btn" data-row-action="retry-menu" style="margin-top:10px;">
+              ↻ TRY AGAIN
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+    updateTotalsAndTemplate();
+    return;
+  }
+
   if (orderRows.length === 0) {
     orderTableBody.innerHTML = `
       <tr>
         <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono);">
-          No items in your order table yet! Click <strong>+ ADD ITEM TO TABLE</strong> above or <strong>+ ADD ANOTHER ITEM ROW</strong> below.
+          No items in your order table yet! Click <strong>+ ADD ITEM TO TABLE</strong> above.
         </td>
       </tr>
     `;
   } else {
     orderTableBody.innerHTML = orderRows.map((row, idx) => {
-      const lineTotal = row.qty * row.unitPrice;
-      const isCustom = row.itemId === 'custom';
+      const menuObj = getMenuItemById(row.itemId);
+      const lineTotal = row.qty * menuObj.price;
 
       return `
         <tr data-row-id="${row.rowId}">
           <td class="col-num">${idx + 1}</td>
 
-          <!-- Item Template Selection -->
           <td class="col-item">
             <div class="row-item-wrap">
               <select class="row-select" data-row-action="select-item" data-row-id="${row.rowId}" aria-label="Select item for row ${idx + 1}">
-                ${buildRowSelectOptions(row.itemId)}
+                ${buildRowSelectOptions(menuObj.id)}
               </select>
-              ${isCustom ? `
-                <div style="display:flex; gap:6px;">
-                  <input type="text" class="row-custom-input" data-row-action="custom-name" data-row-id="${row.rowId}" value="${escapeHtml(row.customName)}" placeholder="Custom item name..." />
-                  <input type="number" class="row-custom-input" style="width:95px;" data-row-action="custom-price" data-row-id="${row.rowId}" value="${row.unitPrice}" min="0" placeholder="₱ Price" />
-                </div>
-              ` : ''}
             </div>
           </td>
 
-          <!-- Notes / Add-ons -->
           <td class="col-notes">
             <input
               type="text"
@@ -362,27 +604,26 @@ function renderOrderTable() {
               data-row-action="edit-notes"
               data-row-id="${row.rowId}"
               value="${escapeHtml(row.notes)}"
-              placeholder="e.g. Extra chili, +Egg, no scallions..."
+              maxlength="100"
+              placeholder="e.g. Extra chili, no scallions..."
             />
           </td>
 
-          <!-- Quantity & Amount Button/Controls Right Next to It -->
           <td class="col-qty-amt">
             <div class="row-qty-amt-control">
               <div class="row-stepper" title="Change Quantity">
                 <button type="button" class="row-step-btn" data-row-action="qty-minus" data-row-id="${row.rowId}" aria-label="Decrease quantity">−</button>
-                <input type="number" class="row-qty-input" data-row-action="qty-input" data-row-id="${row.rowId}" value="${row.qty}" min="1" max="99" aria-label="Quantity" />
+                <input type="number" class="row-qty-input" data-row-action="qty-input" data-row-id="${row.rowId}" value="${row.qty}" min="1" max="30" aria-label="Quantity" />
                 <button type="button" class="row-step-btn" data-row-action="qty-plus" data-row-id="${row.rowId}" aria-label="Increase quantity">+</button>
               </div>
 
-              <div class="row-amount-box" title="Unit Price × Quantity = Line Amount">
-                <span class="unit-price-tag">@₱${row.unitPrice}</span>
+              <div class="row-amount-box" title="Server Price × Quantity = Line Amount">
+                <span class="unit-price-tag">@₱${menuObj.price}</span>
                 <span class="row-line-total">₱${lineTotal.toLocaleString()}</span>
               </div>
             </div>
           </td>
 
-          <!-- Remove Row -->
           <td class="col-action">
             <button type="button" class="btn-del-row" data-row-action="delete-row" data-row-id="${row.rowId}" title="Remove item">✕</button>
           </td>
@@ -396,35 +637,43 @@ function renderOrderTable() {
 
 function updateTotalsAndTemplate() {
   const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
-  const totalAmount = orderRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.unitPrice) || 0)), 0);
+  const totalAmount = orderRows.reduce((acc, r) => {
+    const item = getMenuItemById(r.itemId);
+    return acc + ((parseInt(r.qty, 10) || 0) * item.price);
+  }, 0);
 
   summaryTotalQty.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'}`;
   summaryTotalAmount.textContent = `₱${totalAmount.toLocaleString()}`;
-  headerCartCount.textContent = totalQty;
+  if (headerCartCount) headerCartCount.textContent = totalQty;
+  if (mobileOrderCountBadge) mobileOrderCountBadge.textContent = totalQty;
 
   liveOrderTemplatePreview.textContent = generateOrderTemplateText();
 }
 
-// 10. GENERATE AUTO-TEMPLATE TEXT FOR POSTING / MESSENGER / GOOGLE SHEETS
+// 12. LOCAL PREVIEW TICKET (All Required Fields Outputted, No Preferred Time)
 function generateOrderTemplateText() {
   const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
-  const totalAmount = orderRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.unitPrice) || 0)), 0);
+  const totalAmount = orderRows.reduce((acc, r) => {
+    const item = getMenuItemById(r.itemId);
+    return acc + ((parseInt(r.qty, 10) || 0) * item.price);
+  }, 0);
 
-  const name = custName.value.trim() || '[Your Name]';
-  const phone = custPhone.value.trim() || '[Your Contact #]';
-  const social = custSocial.value.trim() || 'N/A';
+  const name = custName.value.trim() || '[Required: Customer Name]';
+  const phoneCheck = verifyAndFormatPHPhone(custPhone.value);
+  const phoneDisplay = phoneCheck.valid ? phoneCheck.e164 : (custPhone.value.trim() || '[Required: Verified PH Phone #]');
+  const social = custSocial.value.trim() || '[Required: FB / IG Handle]';
   const mode = custFulfillment.value;
-  const payment = custPayment.value;
-  const location = custLocation.value.trim() || '[Your Complete Delivery Address / Location]';
-  const landmark = custLandmark.value.trim() || 'N/A';
-  const timeNote = custTime.value.trim() || 'ASAP';
+  const payment = custPayment.value || 'Cash on Delivery (COD)';
+  const location = custLocation.value.trim() || '[Required: Complete Delivery Address / Location]';
+  const landmark = custLandmark.value.trim() || '[Required: Nearest Landmark / Gate Color]';
 
   const itemsLines = orderRows.length > 0
     ? orderRows.map((r, i) => {
-        const lineAmt = r.qty * r.unitPrice;
-        const noteStr = r.notes ? ` (${r.notes})` : '';
-        return `${i + 1}. [${r.qty}x] ${r.customName}${noteStr} — ₱${lineAmt.toLocaleString()} (@₱${r.unitPrice})`;
-      }).join('\n')
+      const item = getMenuItemById(r.itemId);
+      const lineAmt = r.qty * item.price;
+      const noteStr = r.notes ? ` (${r.notes})` : '';
+      return `${i + 1}. [${r.qty}x] ${item.name}${noteStr} — ₱${lineAmt.toLocaleString()} (@₱${item.price})`;
+    }).join('\n')
     : '   (No items added yet)';
 
   return [
@@ -443,19 +692,34 @@ function generateOrderTemplateText() {
     `=========================================`,
     `📍 CUSTOMER CONTACT & LOCATION:`,
     `• Name      : ${name}`,
-    `• Contact # : ${phone}`,
+    `• Contact # : ${phoneDisplay}`,
     `• FB / IG   : ${social}`,
-    `• Order Mode: ${mode} (${payment})`,
+    `• Order Mode: ${mode}`,
+    `• Payment   : ${payment}`,
     `• Location  : ${location}`,
     `• Landmark  : ${landmark}`,
-    `• Time/Note : ${timeNote}`,
     `=========================================`
   ].join('\n');
 }
 
-// 11. EVENT LISTENERS
+// 13. EVENT LISTENERS
 function attachEventListeners() {
-  // ORDER NOW Buttons -> Reveal the Auto-Template Fillout Order Table!
+  // Mobile Corner Switcher Buttons ("Menu" on Top-Left, "Order" on Top-Right)
+  if (mobileCornerMenuBtn) {
+    mobileCornerMenuBtn.addEventListener('click', () => setMobilePage('menu'));
+  }
+  if (mobileCornerOrderBtn) {
+    mobileCornerOrderBtn.addEventListener('click', () => setMobilePage('order'));
+  }
+
+  if (exitMobilePreviewBtn) {
+    exitMobilePreviewBtn.addEventListener('click', () => {
+      isManualMobilePreview = false;
+      applyMobileModeState();
+      showToast('🖥️ Returned to Desktop View');
+    });
+  }
+
   ['headerOrderNowBtn', 'heroOrderNowBtn', 'menuSectionOrderNowBtn', 'bannerOrderNowBtn'].forEach(btnId => {
     const el = document.getElementById(btnId);
     if (el) {
@@ -468,7 +732,6 @@ function attachEventListeners() {
     hideOrderTableBtn.addEventListener('click', hideOrderingTable);
   }
 
-  // Category Tabs
   document.querySelectorAll('.cat-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
@@ -478,37 +741,44 @@ function attachEventListeners() {
     });
   });
 
-  // Mobile Mode Preview Toggle (Automatic via CSS @media <=768px, or manual preview on desktop)
   const toggleMobileModeBtn = document.getElementById('toggleMobileModeBtn');
-  const mobileModeLabel = document.getElementById('mobileModeLabel');
-  if (toggleMobileModeBtn && mobileModeLabel) {
+  if (toggleMobileModeBtn) {
     toggleMobileModeBtn.addEventListener('click', () => {
-      const isForcedMobile = document.body.classList.toggle('mobile-mode');
-      mobileModeLabel.textContent = isForcedMobile ? 'MOBILE' : 'AUTO';
-      showToast(isForcedMobile ? '📱 Mobile Mode active (subtitles hidden, button-only layout)' : '🖥️ Adaptive Auto View active');
+      isManualMobilePreview = !isManualMobilePreview;
+      applyMobileModeState();
+      showToast(
+        document.body.classList.contains('mobile-mode')
+          ? '📱 Bare-Bones Mobile UI active (Menu / Order corner tabs)'
+          : '🖥️ Desktop View active'
+      );
     });
   }
 
-  // Photo B&W vs Color Toggle
   const togglePhotoModeBtn = document.getElementById('togglePhotoModeBtn');
   const photoModeLabel = document.getElementById('photoModeLabel');
-  togglePhotoModeBtn.addEventListener('click', () => {
-    const isColor = document.body.classList.toggle('color-photos');
-    photoModeLabel.textContent = isColor ? 'FULL COLOR' : 'B&W INK';
-  });
+  if (togglePhotoModeBtn && photoModeLabel) {
+    togglePhotoModeBtn.addEventListener('click', () => {
+      const isColor = document.body.classList.toggle('color-photos');
+      photoModeLabel.textContent = isColor ? 'FULL COLOR' : 'B&W INK';
+    });
+  }
 
-  // Menu Grid Delegated Actions (Card +Add, Card Qty -, Card Qty +)
   menuGrid.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
     const id = btn.dataset.id;
 
+    if (action === 'retry-menu') {
+      syncMenuFromServer();
+      return;
+    }
+
     if (action === 'card-minus') {
       cardQuantities[id] = Math.max(1, (cardQuantities[id] || 1) - 1);
       renderMenuGrid();
     } else if (action === 'card-plus') {
-      cardQuantities[id] = Math.min(99, (cardQuantities[id] || 1) + 1);
+      cardQuantities[id] = Math.min(30, (cardQuantities[id] || 1) + 1);
       renderMenuGrid();
     } else if (action === 'card-add') {
       const qtyToAdd = cardQuantities[id] || 1;
@@ -519,10 +789,7 @@ function attachEventListeners() {
     }
   });
 
-  // Top Builder Bar Controls
   quickItemSelect.addEventListener('change', updateBuilderBarPreview);
-  customItemName.addEventListener('input', updateBuilderBarPreview);
-  customItemPrice.addEventListener('input', updateBuilderBarPreview);
 
   builderQtyMinus.addEventListener('click', () => {
     builderQtyInput.value = Math.max(1, (parseInt(builderQtyInput.value, 10) || 1) - 1);
@@ -530,28 +797,31 @@ function attachEventListeners() {
   });
 
   builderQtyPlus.addEventListener('click', () => {
-    builderQtyInput.value = Math.min(99, (parseInt(builderQtyInput.value, 10) || 1) + 1);
+    builderQtyInput.value = Math.min(30, (parseInt(builderQtyInput.value, 10) || 1) + 1);
     updateBuilderBarPreview();
   });
 
   builderQtyInput.addEventListener('input', updateBuilderBarPreview);
 
   addToTableBtn.addEventListener('click', () => {
-    const item = getSelectedBuilderItem();
-    const qty = Math.max(1, parseInt(builderQtyInput.value, 10) || 1);
-    addItemToOrderTable(item.id, qty, item.name, item.price);
+    if (menuLoadState !== 'loaded') return;
+    const item = getMenuItemById(quickItemSelect.value);
+    const qty = Math.max(1, Math.min(30, parseInt(builderQtyInput.value, 10) || 1));
+    addItemToOrderTable(item.id, qty);
     builderQtyInput.value = 1;
     updateBuilderBarPreview();
   });
 
-  // Add New Blank/Default Row Button
   const insertBlankRow = () => {
+    if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) return;
+    if (orderRows.length >= 20) {
+      showToast('⚠ Submission limiter: Maximum 20 line items per order.');
+      return;
+    }
     const firstItem = MENU_ITEMS[0];
     orderRows.push({
       rowId: cryptoRowId(),
       itemId: firstItem.id,
-      customName: firstItem.name,
-      unitPrice: firstItem.price,
       qty: 1,
       notes: ''
     });
@@ -562,11 +832,15 @@ function attachEventListeners() {
   addBlankRowBtn.addEventListener('click', insertBlankRow);
   tableFooterAddBtn.addEventListener('click', insertBlankRow);
 
-  // Order Table Row Delegated Events
   orderTableBody.addEventListener('click', e => {
     const btn = e.target.closest('[data-row-action]');
     if (!btn) return;
     const action = btn.dataset.rowAction;
+    if (action === 'retry-menu') {
+      syncMenuFromServer();
+      return;
+    }
+
     const rowId = btn.dataset.rowId;
     const row = orderRows.find(r => r.rowId === rowId);
     if (!row) return;
@@ -575,7 +849,7 @@ function attachEventListeners() {
       row.qty = Math.max(1, row.qty - 1);
       renderOrderTable();
     } else if (action === 'qty-plus') {
-      row.qty = Math.min(99, row.qty + 1);
+      row.qty = Math.min(30, row.qty + 1);
       renderOrderTable();
     } else if (action === 'delete-row') {
       orderRows = orderRows.filter(r => r.rowId !== rowId);
@@ -592,21 +866,13 @@ function attachEventListeners() {
     if (!row) return;
 
     if (action === 'select-item') {
-      const val = el.value;
-      row.itemId = val;
-      if (val !== 'custom') {
-        const found = MENU_ITEMS.find(m => m.id === val);
-        if (found) {
-          row.customName = found.name;
-          row.unitPrice = found.price;
-        }
-      } else {
-        row.customName = 'Custom Item';
-        row.unitPrice = 89;
+      const found = MENU_ITEMS.find(m => m.id === el.value);
+      if (found) {
+        row.itemId = found.id;
       }
       renderOrderTable();
     } else if (action === 'qty-input') {
-      row.qty = Math.max(1, Math.min(99, parseInt(el.value, 10) || 1));
+      row.qty = Math.max(1, Math.min(30, parseInt(el.value, 10) || 1));
       renderOrderTable();
     }
   });
@@ -619,24 +885,28 @@ function attachEventListeners() {
     if (!row) return;
 
     if (action === 'edit-notes') {
-      row.notes = el.value;
+      row.notes = el.value.slice(0, 100);
       updateTotalsAndTemplate();
-    } else if (action === 'custom-name') {
-      row.customName = el.value;
-      updateTotalsAndTemplate();
-    } else if (action === 'custom-price') {
-      row.unitPrice = Math.max(0, parseFloat(el.value) || 0);
-      renderOrderTable();
     }
   });
 
-  // Contact & Location Live Template Sync
-  [custName, custPhone, custSocial, custFulfillment, custPayment, custLocation, custLandmark, custTime].forEach(input => {
+  // Live PH Phone Verification via Google libphonenumber
+  custPhone.addEventListener('input', () => {
+    updatePhoneValidationUI(false);
+    updateTotalsAndTemplate();
+  });
+
+  custPhone.addEventListener('blur', () => {
+    updatePhoneValidationUI(true);
+    updateTotalsAndTemplate();
+  });
+
+  [custName, custSocial, custFulfillment, custPayment, custLocation, custLandmark].forEach(input => {
+    if (!input) return;
     input.addEventListener('input', updateTotalsAndTemplate);
     input.addEventListener('change', updateTotalsAndTemplate);
   });
 
-  // GPS Location Pin Button
   detectLocationBtn.addEventListener('click', () => {
     if (!navigator.geolocation) {
       showToast('Geolocation is not supported by your browser.');
@@ -664,42 +934,33 @@ function attachEventListeners() {
     );
   });
 
-  // Sample Fill & Reset Buttons
   document.getElementById('loadSampleOrderBtn').addEventListener('click', () => {
+    if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) {
+      showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
+      return;
+    }
     orderRows = [
       {
         rowId: cryptoRowId(),
-        itemId: 'bowl-pork-bbq',
-        customName: 'Pork BBQ Chao Fan Bowl',
-        unitPrice: 120,
+        itemId: MENU_ITEMS[0].id,
         qty: 2,
         notes: 'Spicy chili oil on side'
       },
       {
         rowId: cryptoRowId(),
-        itemId: 'bowl-sisig',
-        customName: 'Crispy Pork Sisig Rice Bowl',
-        unitPrice: 99,
+        itemId: (MENU_ITEMS[1] || MENU_ITEMS[0]).id,
         qty: 1,
         notes: 'Extra crispy'
-      },
-      {
-        rowId: cryptoRowId(),
-        itemId: 'bowl-cheesy-poppers',
-        customName: 'Cheesy Chicken Poppers Chao Fan',
-        unitPrice: 79,
-        qty: 2,
-        notes: 'Extra cheese drizzle'
       }
     ];
     custName.value = 'Alex Rivera';
     custPhone.value = '0917 888 4321';
+    updatePhoneValidationUI(true);
     custSocial.value = '@alexrivera_ph';
     custFulfillment.value = 'Delivery';
-    custPayment.value = 'GCash';
+    custPayment.value = 'Cash on Delivery (COD)';
     custLocation.value = 'Blk 4 Lot 12 Patio Jacinto, Molino 3, Bacoor, Cavite';
     custLandmark.value = 'White minimalist gate near the clubhouse';
-    custTime.value = 'Deliver food by 5:00 PM';
     renderOrderTable();
     showToast('Loaded sample auto-template order!');
   });
@@ -712,16 +973,14 @@ function attachEventListeners() {
     showToast('Order table cleared.');
   });
 
-  // Copy Auto-Template Button
   document.getElementById('copyOrderTemplateBtn').addEventListener('click', async () => {
-    const text = generateOrderTemplateText();
+    const text = liveOrderTemplatePreview.textContent || generateOrderTemplateText();
     await copyToClipboard(text);
-    showToast('✓ Order template copied to clipboard! Ready to paste anywhere.');
+    showToast('✓ Order template copied to clipboard!');
   });
 
-  // Save .TXT Receipt Button
   document.getElementById('downloadReceiptTxtBtn').addEventListener('click', () => {
-    const text = generateOrderTemplateText();
+    const text = liveOrderTemplatePreview.textContent || generateOrderTemplateText();
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -732,28 +991,68 @@ function attachEventListeners() {
     showToast('Downloaded order ticket (.txt)!');
   });
 
-  // Direct Submit Button (Sends to Google Sheets)
-  document.getElementById('sendOrderDirectBtn').addEventListener('click', handleNoVpsOrderSubmit);
+  document.getElementById('sendOrderDirectBtn').addEventListener('click', handleOrderSubmit);
 }
 
-// Anti-Spam / Anti-DDoS & Streamliner State
+// 14. SUBMISSION LIMITERS & ALL-FIELDS VALIDATION
 let isSubmittingOrder = false;
 let lastSubmittedFingerprint = '';
-let submitCooldownUntil = 0;
+
+function getCooldownUntil() {
+  return Number(sessionStorage.getItem('cnc_cooldown_until') || 0);
+}
+
+function setCooldownUntil(ts) {
+  sessionStorage.setItem('cnc_cooldown_until', String(ts));
+}
+
+function checkHourlySubmissionLimit() {
+  try {
+    const now = Date.now();
+    const oneHourAgo = now - 3600 * 1000;
+    const raw = JSON.parse(localStorage.getItem('cnc_hourly_submits') || '[]');
+    const recent = Array.isArray(raw) ? raw.filter(ts => Number(ts) > oneHourAgo) : [];
+    localStorage.setItem('cnc_hourly_submits', JSON.stringify(recent));
+    return recent.length < 6;
+  } catch {
+    return true;
+  }
+}
+
+function recordHourlySubmission() {
+  try {
+    const now = Date.now();
+    const oneHourAgo = now - 3600 * 1000;
+    const raw = JSON.parse(localStorage.getItem('cnc_hourly_submits') || '[]');
+    const recent = Array.isArray(raw) ? raw.filter(ts => Number(ts) > oneHourAgo) : [];
+    recent.push(now);
+    localStorage.setItem('cnc_hourly_submits', JSON.stringify(recent));
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function validateOrderForm() {
-  // 1. Honeypot Bot Trap Check
   const honeypot = document.getElementById('websiteHoneypot');
   if (honeypot && honeypot.value.trim() !== '') {
-    // Silently reject automated bot submissions
     return false;
   }
 
-  // 2. Rate-Limit Cooldown Check (Prevents button-mashing / DDoS floods from a single client)
+  if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) {
+    showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
+    return false;
+  }
+
   const now = Date.now();
-  if (now < submitCooldownUntil) {
-    const secsLeft = Math.ceil((submitCooldownUntil - now) / 1000);
-    showToast(`⏳ Please wait ${secsLeft}s before sending another order.`);
+  const cooldownUntil = getCooldownUntil();
+  if (now < cooldownUntil) {
+    const secsLeft = Math.ceil((cooldownUntil - now) / 1000);
+    showToast(`⏳ Submission limiter: Please wait ${secsLeft}s before placing another order.`);
+    return false;
+  }
+
+  if (!checkHourlySubmissionLimit()) {
+    showToast('⏳ Submission limiter: Maximum orders per hour reached. Please try again later.');
     return false;
   }
 
@@ -761,58 +1060,142 @@ function validateOrderForm() {
     showToast('⚠ Please add at least 1 item to your order table first!');
     return false;
   }
-  if (!custName.value.trim()) {
+
+  const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
+  if (totalQty < 1 || totalQty > 50) {
+    showToast('⚠ Submission limiter: Total quantity must be between 1 and 50 items.');
+    return false;
+  }
+
+  // 1. Customer Name (Required, 2–80 chars)
+  const nameVal = custName.value.trim();
+  if (nameVal.length < 2 || nameVal.length > 80) {
     custName.focus();
-    showToast('⚠ Please enter your Name at the bottom of the table.');
+    showToast('⚠ Please enter your Name / Nickname (2–80 characters).');
     return false;
   }
-  if (!custPhone.value.trim()) {
+
+  // 2. PH Phone Number (Required, Verified PH Format via Google libphonenumber)
+  const phoneCheck = verifyAndFormatPHPhone(custPhone.value);
+  if (!phoneCheck.valid) {
     custPhone.focus();
-    showToast('⚠ Please enter your Contact Number at the bottom of the table.');
+    updatePhoneValidationUI(false);
+    showToast(`⚠ ${phoneCheck.error}`);
     return false;
   }
-  if (!custLocation.value.trim()) {
+  custPhone.value = phoneCheck.formattedNational;
+  updatePhoneValidationUI(false);
+
+  // 3. Social Handle (Required — All fields must be filled to submit!)
+  const socialVal = custSocial.value.trim();
+  if (socialVal.length < 2 || socialVal.length > 80) {
+    custSocial.focus();
+    showToast('⚠ Please enter your FB Messenger / IG Handle (All fields are required).');
+    return false;
+  }
+
+  // 4. Order Type & Payment (COD / Payment on Delivery Only!)
+  if (!['Delivery', 'Pick-Up', 'Dine-In'].includes(custFulfillment.value)) {
+    custFulfillment.focus();
+    showToast('⚠ Please select a valid Order Mode.');
+    return false;
+  }
+
+  if (!['Cash on Delivery (COD)', 'Payment on Delivery'].includes(custPayment.value)) {
+    custPayment.focus();
+    showToast('⚠ Only Cash on Delivery (COD) / Payment on Delivery is accepted right now.');
+    return false;
+  }
+
+  // 5. Complete Location / Address (Required, 4–280 chars)
+  const locVal = custLocation.value.trim();
+  if (locVal.length < 4 || locVal.length > 280) {
     custLocation.focus();
-    showToast('⚠ Please enter your Location / Delivery Address at the bottom of the table.');
+    showToast('⚠ Please enter your Complete Delivery Address / Location (min 4 characters).');
     return false;
   }
+
+  // 6. Nearest Landmark / Gate Color (Required — All fields must be filled to submit!)
+  const landmarkVal = custLandmark.value.trim();
+  if (landmarkVal.length < 2 || landmarkVal.length > 160) {
+    custLandmark.focus();
+    showToast('⚠ Please enter your Nearest Landmark / Gate Color (All fields are required).');
+    return false;
+  }
+
   return true;
 }
 
-// Streamlined Retry Queue with Jittered Exponential Backoff (Handles high-concurrency bursts smoothly)
-async function postOrderWithStreamliner(url, payloadObj, maxRetries = 3) {
-  const bodyStr = JSON.stringify(payloadObj);
+async function submitOrderToSupabaseServer(rpcArgs, maxRetries = 3) {
+  if (!SUPABASE_URL || SUPABASE_URL.trim() === '') {
+    const proxyRes = await fetch('/api/submit-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rpcArgs)
+    });
+    if (!proxyRes.ok) {
+      const errText = await proxyRes.text();
+      throw new Error(errText || `Order rejected (${proxyRes.status})`);
+    }
+    return await proxyRes.json();
+  }
+
+  const cleanBaseUrl = SUPABASE_URL.trim().replace(/\/+$/, '');
+  const rpcEndpoint = `${cleanBaseUrl}/rest/v1/rpc/submit_order`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_PUBLISHABLE_KEY
+  };
+  if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
+    headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await fetch(url, {
+      const res = await fetch(rpcEndpoint, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: bodyStr
+        headers,
+        body: JSON.stringify(rpcArgs)
       });
-      return true;
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.message || `Order rejected (${res.status})`;
+        if (res.status >= 400 && res.status < 500) {
+          throw new Error(msg);
+        }
+        throw new Error(msg);
+      }
+      return await res.json();
     } catch (err) {
-      if (attempt === maxRetries) throw err;
-      // Jittered backoff (e.g. 900ms, 2100ms, 4200ms) so concurrent bursts don't collide
-      const jitter = Math.floor(Math.random() * 400);
-      const delayMs = attempt * 1100 + jitter;
-      await new Promise(res => setTimeout(res, delayMs));
+      if (
+        attempt === maxRetries ||
+        String(err.message).includes('limit') ||
+        String(err.message).includes('Invalid') ||
+        String(err.message).includes('required')
+      ) {
+        throw err;
+      }
+      const jitter = Math.floor(Math.random() * 350);
+      await new Promise(r => setTimeout(r, attempt * 900 + jitter));
     }
   }
 }
 
-async function handleNoVpsOrderSubmit() {
+async function handleOrderSubmit() {
   if (isSubmittingOrder) return;
   if (!validateOrderForm()) return;
 
-  const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
-  const totalAmount = orderRows.reduce((acc, r) => acc + ((parseInt(r.qty, 10) || 0) * (parseFloat(r.unitPrice) || 0)), 0);
+  const phoneCheck = verifyAndFormatPHPhone(custPhone.value);
+  const verifiedE164Phone = phoneCheck.e164;
 
-  // Duplicate Order Fingerprint Guard (Prevents accidental double-submit of identical order)
   const currentFingerprint = JSON.stringify({
     name: custName.value.trim().toLowerCase(),
-    phone: custPhone.value.trim(),
+    phone: verifiedE164Phone,
+    social: custSocial.value.trim().toLowerCase(),
     location: custLocation.value.trim().toLowerCase(),
+    landmark: custLandmark.value.trim().toLowerCase(),
     items: orderRows.map(r => `${r.itemId}:${r.qty}:${r.notes}`)
   });
 
@@ -824,49 +1207,50 @@ async function handleNoVpsOrderSubmit() {
   isSubmittingOrder = true;
   const btn = document.getElementById('sendOrderDirectBtn');
   const originalLabel = '🚀 SUBMIT ORDER NOW';
-  btn.innerHTML = '⏳ QUEUING ORDER...';
+  btn.innerHTML = '⏳ VERIFYING & SAVING...';
   btn.disabled = true;
 
   const submittedRef = orderReference;
-  const templateText = generateOrderTemplateText();
+
+  // Client sends ONLY verified fields + item_id, qty, notes (9 arguments — Preferred Time removed, COD enforced)
+  const rpcPayload = {
+    p_order_ref: submittedRef,
+    p_customer_name: custName.value.trim(),
+    p_phone: verifiedE164Phone,
+    p_social_handle: custSocial.value.trim(),
+    p_fulfillment_mode: custFulfillment.value,
+    p_payment_method: 'Cash on Delivery (COD)',
+    p_location: custLocation.value.trim(),
+    p_landmark: custLandmark.value.trim(),
+    p_items: orderRows.map(r => ({
+      item_id: r.itemId,
+      qty: parseInt(r.qty, 10) || 1,
+      notes: (r.notes || '').trim().slice(0, 100)
+    }))
+  };
 
   try {
-    if (GOOGLE_SHEETS_WEBHOOK_URL) {
-      await postOrderWithStreamliner(GOOGLE_SHEETS_WEBHOOK_URL, {
-        orderRef: submittedRef,
-        timestamp: new Date().toLocaleString('en-PH'),
-        items: orderRows,
-        itemsSummary: orderRows.map(r => `${r.qty}x ${r.customName}${r.notes ? ' (' + r.notes + ')' : ''} [₱${r.qty * r.unitPrice}]`).join(', '),
-        totalQty,
-        totalAmount,
-        customer: {
-          name: custName.value.trim(),
-          phone: custPhone.value.trim(),
-          social: custSocial.value.trim(),
-          fulfillment: custFulfillment.value,
-          payment: custPayment.value,
-          location: custLocation.value.trim(),
-          landmark: custLandmark.value.trim(),
-          timeNote: custTime.value.trim()
-        },
-        formattedReceipt: templateText
-      });
-    }
+    const serverResult = await submitOrderToSupabaseServer(rpcPayload);
 
-    // Save fingerprint, start 25-second anti-spam cooldown, and rotate Order Ref for next order
+    const verifiedReceipt = (serverResult && serverResult.verified_receipt)
+      ? serverResult.verified_receipt
+      : generateOrderTemplateText();
+    const verifiedTotal = (serverResult && serverResult.verified_total !== undefined)
+      ? `₱${Number(serverResult.verified_total).toLocaleString()}`
+      : summaryTotalAmount.textContent;
+
+    liveOrderTemplatePreview.textContent = verifiedReceipt;
     lastSubmittedFingerprint = currentFingerprint;
-    submitCooldownUntil = Date.now() + 25000;
-    await copyToClipboard(templateText);
+    setCooldownUntil(Date.now() + 30000);
+    recordHourlySubmission();
+    await copyToClipboard(verifiedReceipt);
 
-    showToast(`🎉 Order ${submittedRef} logged to Google Sheets! Receipt copied.`);
+    showToast(`🎉 Order ${submittedRef} verified (${verifiedTotal}) & saved! Receipt copied.`);
 
-    // Generate fresh Order Ref for any subsequent order
     orderReference = generateOrderRef();
     orderRefCode.textContent = orderReference;
-    updateTotalsAndTemplate();
 
-    // Visual Cooldown Countdown on Button to prevent double-clicking
-    let remaining = 25;
+    let remaining = 30;
     const cdInterval = setInterval(() => {
       remaining -= 1;
       if (remaining > 0) {
@@ -878,8 +1262,8 @@ async function handleNoVpsOrderSubmit() {
       }
     }, 1000);
   } catch (err) {
-    await copyToClipboard(templateText);
-    showToast(`Order copied to clipboard! (Network busy, please try again)`);
+    const errMsg = err && err.message ? err.message : 'Network busy, please try again';
+    showToast(`⚠ ${errMsg}`);
     btn.innerHTML = originalLabel;
     btn.disabled = false;
   } finally {
@@ -887,7 +1271,7 @@ async function handleNoVpsOrderSubmit() {
   }
 }
 
-// 13. HELPERS
+// 15. HELPERS
 async function copyToClipboard(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -917,5 +1301,5 @@ function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toast.classList.add('hidden');
-  }, 4200);
+  }, 4500);
 }

@@ -116,8 +116,18 @@
     </div>
   </div>
 
-  <!-- Main Poster Frame (Matches the Cement Poster Border from Real.PNG) -->
-  <div class="poster-frame">
+  <!-- Main Poster Frame (Matches the Cement Poster Border from Real.PNG; becomes Bare-Bones Box on Mobile) -->
+  <div class="poster-frame" id="mainPosterFrame">
+    <!-- BARE-BONES MOBILE UI CORNER BUTTONS (Matches User's Sketch: Angled "Menu" on Top-Left, Angled "Order" on Top-Right) -->
+    <nav class="mobile-corner-nav" aria-label="Mobile Page Switcher">
+      <button type="button" id="mobileCornerMenuBtn" class="mobile-corner-btn corner-menu active">
+        Menu
+      </button>
+      <button type="button" id="mobileCornerOrderBtn" class="mobile-corner-btn corner-order">
+        Order <span id="mobileOrderCountBadge" class="mobile-order-badge">0</span>
+      </button>
+    </nav>
+
     <!-- HEADER / HERO -->
     <header class="site-header">
       <div class="header-top-bar">
@@ -259,18 +269,12 @@
         </div>
 
         <div class="builder-controls">
-          <!-- Item Template Selector -->
+          <!-- Item Template Selector (Loaded from Server-Side Menu Catalog) -->
           <div class="builder-field builder-item-select-wrap">
             <label for="quickItemSelect" class="sr-only">Select Menu Item</label>
             <select id="quickItemSelect" class="input-brutal">
-              <!-- Populated dynamically with all menu items + Custom Item option -->
+              <!-- Populated dynamically from Supabase public.menu_items -->
             </select>
-          </div>
-
-          <!-- Custom Item Name & Price (Only shown if "Custom Item" is picked) -->
-          <div id="customItemInputs" class="custom-item-inputs hidden">
-            <input type="text" id="customItemName" class="input-brutal" placeholder="Custom item name..." />
-            <input type="number" id="customItemPrice" class="input-brutal input-price-sm" placeholder="₱ Price" min="0" value="89" />
           </div>
 
           <!-- Button/Control Next to It: QUANTITY & AMOUNT -->
@@ -371,60 +375,55 @@
                     <!-- Customer Name -->
                     <div class="form-cell">
                       <label for="custName">1. CUSTOMER NAME / NICKNAME *</label>
-                      <input type="text" id="custName" class="input-brutal" placeholder="Customer Name / Nickname *" required />
+                      <input type="text" id="custName" class="input-brutal" placeholder="Customer Name / Nickname *" minlength="2" maxlength="80" required />
                     </div>
 
-                    <!-- Contact Number -->
+                    <!-- Contact Number (Verified PH Format via Google libphonenumber) -->
                     <div class="form-cell">
-                      <label for="custPhone">2. CONTACT NUMBER (SMS / GCASH) *</label>
-                      <input type="tel" id="custPhone" class="input-brutal" placeholder="Contact Number (SMS / GCash) *" required />
+                      <div class="label-with-action">
+                        <label for="custPhone">2. PH CONTACT NUMBER *</label>
+                        <span id="phoneVerifyBadge" class="phone-verify-badge">PH Format (09XX / +639XX)</span>
+                      </div>
+                      <input type="tel" id="custPhone" class="input-brutal" placeholder="0917 123 4567 or +63 917 123 4567 *" maxlength="20" required />
                     </div>
 
-                    <!-- Messenger / IG Handle -->
+                    <!-- Messenger / IG Handle (Required) -->
                     <div class="form-cell">
-                      <label for="custSocial">3. FB MESSENGER / IG HANDLE</label>
-                      <input type="text" id="custSocial" class="input-brutal" placeholder="FB Messenger / IG Handle (Optional)" />
+                      <label for="custSocial">3. FB MESSENGER / IG HANDLE *</label>
+                      <input type="text" id="custSocial" class="input-brutal" placeholder="FB Messenger / IG Handle *" minlength="2" maxlength="80" required />
                     </div>
 
-                    <!-- Order Mode & Payment -->
+                    <!-- Order Mode & Payment (COD / Payment on Delivery Only) -->
                     <div class="form-cell">
-                      <label for="custFulfillment">4. ORDER TYPE &amp; PAYMENT</label>
+                      <label for="custFulfillment">4. ORDER TYPE &amp; PAYMENT (COD ONLY) *</label>
                       <div class="split-selects">
-                        <select id="custFulfillment" class="input-brutal">
+                        <select id="custFulfillment" class="input-brutal" required>
                           <option value="Delivery">🛵 Delivery</option>
                           <option value="Pick-Up">🛍️ Pick-Up at Shop</option>
                           <option value="Dine-In">🍽️ Dine-In at Shop</option>
                         </select>
-                        <select id="custPayment" class="input-brutal">
-                          <option value="GCash">GCash</option>
-                          <option value="Cash on Delivery (COD)">Cash / COD</option>
-                          <option value="Maya">Maya</option>
-                          <option value="Pay at Counter">Pay at Counter</option>
+                        <select id="custPayment" class="input-brutal" required>
+                          <option value="Cash on Delivery (COD)" selected>💵 COD / Payment on Delivery</option>
+                          <option value="" disabled>🔒 Online Payments (Coming Soon)</option>
                         </select>
                       </div>
                     </div>
 
                     <!-- Full Location / Address -->
-                    <div class="form-cell form-cell-wide">
+                    <div class="form-cell">
                       <div class="label-with-action">
                         <label for="custLocation">5. COMPLETE LOCATION / DELIVERY ADDRESS *</label>
                         <button type="button" id="detectLocationBtn" class="btn-mini-pin">
                           📍 PIN MY CURRENT GPS LOCATION
                         </button>
                       </div>
-                      <input type="text" id="custLocation" class="input-brutal" placeholder="Complete Delivery Address / Location *" required />
+                      <input type="text" id="custLocation" class="input-brutal" placeholder="Complete Delivery Address / Location *" minlength="4" maxlength="280" required />
                     </div>
 
-                    <!-- Landmark / Special Delivery Instructions -->
+                    <!-- Landmark / Special Delivery Instructions (Required) -->
                     <div class="form-cell">
-                      <label for="custLandmark">6. NEAREST LANDMARK / GATE COLOR</label>
-                      <input type="text" id="custLandmark" class="input-brutal" placeholder="Nearest Landmark / Gate Color" />
-                    </div>
-
-                    <!-- Preferred Time / Notes -->
-                    <div class="form-cell">
-                      <label for="custTime">7. PREFERRED TIME / EXTRA NOTES</label>
-                      <input type="text" id="custTime" class="input-brutal" placeholder="Preferred Time / Extra Notes" />
+                      <label for="custLandmark">6. NEAREST LANDMARK / GATE COLOR *</label>
+                      <input type="text" id="custLandmark" class="input-brutal" placeholder="Nearest Landmark / Gate Color *" minlength="2" maxlength="160" required />
                     </div>
 
                     <!-- Anti-Bot Honeypot Trap (Hidden from real users, catches automated spam bots) -->
@@ -443,7 +442,7 @@
         <div class="sheet-submit-bar">
           <div class="submit-left-note">
             <span class="cute-kaomoji">(っ˘ڡ˘ς)</span>
-            <span>Your order template updates automatically as you edit the table!</span>
+            <span>All fields (*) are required. Payment on Delivery (COD) only — online payments coming soon!</span>
           </div>
 
           <div class="submit-buttons">
@@ -460,12 +459,12 @@
         <!-- Live Auto-Template Text Preview & Submit Status -->
         <div class="receipt-preview-card" style="grid-column: span 2;">
           <div class="receipt-header">
-            <span>★ AUTO-GENERATED ORDER POST TEMPLATE &amp; GOOGLE SHEETS SYNC</span>
+            <span>★ SERVER-VERIFIED ORDER TICKET &amp; SUPABASE SYNC</span>
             <button type="button" id="downloadReceiptTxtBtn" class="btn-mini-pin">⬇ SAVE .TXT</button>
           </div>
           <pre id="liveOrderTemplatePreview" class="receipt-pre"></pre>
           <div class="receipt-footer-hint">
-            ✓ Orders submitted here automatically sync to your Google Sheet and copy to the customer's clipboard for Messenger/SMS.
+            ✓ Orders submitted here are verified server-side by Supabase and copied to your clipboard.
           </div>
         </div>
     </section>
@@ -490,9 +489,16 @@
     </footer>
   </div>
 
+  <!-- Floating button to exit manual Mobile Preview when testing on Desktop -->
+  <button type="button" id="exitMobilePreviewBtn" class="exit-mobile-preview-btn hidden">
+    🖥️ EXIT MOBILE PREVIEW
+  </button>
+
   <!-- Toast Notification -->
   <div id="toastNotice" class="toast-notice hidden" role="status" aria-live="polite"></div>
 
+  <!-- Google libphonenumber port (libphonenumber-js max metadata bundle) for strict PH Phone Verification -->
+  <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.11.14/bundle/libphonenumber-max.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
