@@ -243,64 +243,67 @@
 
     <!-- STEP 2: AUTO-TEMPLATE FILLOUT ORDER TABLE (Hidden until user clicks an ORDER NOW button!) -->
     <section id="order-table-section" class="order-table-section hidden">
-      <div class="section-header-bar">
-        <div>
-          <span class="step-badge">AUTO-TEMPLATE FILLOUT TABLE</span>
-          <h2 class="section-title">POST YOUR ORDER TABLE</h2>
-        </div>
-        <div class="table-header-controls">
-          <button type="button" id="loadSampleOrderBtn" class="btn-tag">
-            ✦ AUTO-FILL SAMPLE
-          </button>
-          <button type="button" id="clearTableBtn" class="btn-tag">
-            ✕ RESET TABLE
-          </button>
-          <button type="button" id="hideOrderTableBtn" class="btn-tag">
-            ▲ HIDE TABLE
-          </button>
-        </div>
-      </div>
-
-      <!-- AUTO-ADD BAR: Button that adds an item to the table + button next to it for Quantity & Amount -->
-      <div class="quick-builder-bar">
-        <div class="builder-label">
-          <span class="graffiti-bullet">★</span>
-          <strong>ADD ITEM TO TABLE:</strong>
+      <!-- UNIFIED HEADER + ADD ITEM SQUARE (Combined so it doesn't look like two detached boxes or an active order) -->
+      <div class="section-header-bar order-header-combined">
+        <div class="order-header-top-row">
+          <div>
+            <span class="step-badge">AUTO-TEMPLATE FILLOUT TABLE</span>
+            <h2 class="section-title">POST YOUR ORDER TABLE</h2>
+          </div>
+          <div class="table-header-controls">
+            <button type="button" id="loadSampleOrderBtn" class="btn-tag">
+              ✦ AUTO-FILL SAMPLE
+            </button>
+            <button type="button" id="clearTableBtn" class="btn-tag">
+              ✕ RESET TABLE
+            </button>
+            <button type="button" id="hideOrderTableBtn" class="btn-tag">
+              ▲ HIDE TABLE
+            </button>
+          </div>
         </div>
 
-        <div class="builder-controls">
-          <!-- Item Template Selector (Loaded from Server-Side Menu Catalog) -->
-          <div class="builder-field builder-item-select-wrap">
-            <label for="quickItemSelect" class="sr-only">Select Menu Item</label>
-            <select id="quickItemSelect" class="input-brutal">
-              <!-- Populated dynamically from Supabase public.menu_items -->
-            </select>
+        <!-- AUTO-ADD BAR COMBINED INSIDE THE POST YOUR ORDER TABLE SQUARE -->
+        <div class="quick-builder-bar">
+          <div class="builder-label">
+            <span class="graffiti-bullet">★</span>
+            <strong>ADD ITEM TO TABLE:</strong>
           </div>
 
-          <!-- Button/Control Next to It: QUANTITY & AMOUNT -->
-          <div class="qty-amount-pill" title="Adjust Quantity and see computed Amount before adding">
-            <div class="pill-qty-group">
-              <span class="pill-mini-label">QTY</span>
-              <button type="button" id="builderQtyMinus" class="qty-step-btn" aria-label="Decrease quantity">−</button>
-              <input type="number" id="builderQtyInput" class="qty-num-input" value="1" min="1" max="99" />
-              <button type="button" id="builderQtyPlus" class="qty-step-btn" aria-label="Increase quantity">+</button>
+          <div class="builder-controls">
+            <!-- Item Template Selector (Loaded from Server-Side Menu Catalog) -->
+            <div class="builder-field builder-item-select-wrap">
+              <label for="quickItemSelect" class="sr-only">Select Menu Item</label>
+              <select id="quickItemSelect" class="input-brutal">
+                <!-- Populated dynamically from Supabase public.menu_items -->
+              </select>
             </div>
-            <div class="pill-divider"></div>
-            <div class="pill-amount-group">
-              <span class="pill-mini-label">AMOUNT</span>
-              <span id="builderComputedAmount" class="pill-amount-val">₱99</span>
+
+            <!-- Button/Control Next to It: QUANTITY & AMOUNT -->
+            <div class="qty-amount-pill" title="Adjust Quantity and see computed Amount before adding">
+              <div class="pill-qty-group">
+                <span class="pill-mini-label">QTY</span>
+                <button type="button" id="builderQtyMinus" class="qty-step-btn" aria-label="Decrease quantity">−</button>
+                <input type="number" id="builderQtyInput" class="qty-num-input" value="1" min="1" max="99" />
+                <button type="button" id="builderQtyPlus" class="qty-step-btn" aria-label="Increase quantity">+</button>
+              </div>
+              <div class="pill-divider"></div>
+              <div class="pill-amount-group">
+                <span class="pill-mini-label">AMOUNT</span>
+                <span id="builderComputedAmount" class="pill-amount-val">₱0</span>
+              </div>
             </div>
+
+            <!-- THE BUTTON THAT ADDS THE ITEM TO THEIR TABLE -->
+            <button type="button" id="addToTableBtn" class="btn-brutal btn-add-main">
+              <span>+ ADD ITEM TO TABLE</span>
+            </button>
+
+            <!-- Also a button to add a blank template row directly -->
+            <button type="button" id="addBlankRowBtn" class="btn-brutal btn-secondary btn-sm" title="Insert a new template row directly in the table">
+              <span>+ NEW ROW</span>
+            </button>
           </div>
-
-          <!-- THE BUTTON THAT ADDS THE ITEM TO THEIR TABLE -->
-          <button type="button" id="addToTableBtn" class="btn-brutal btn-add-main">
-            <span>+ ADD ITEM TO TABLE</span>
-          </button>
-
-          <!-- Also a button to add a blank template row directly -->
-          <button type="button" id="addBlankRowBtn" class="btn-brutal btn-secondary btn-sm" title="Insert a new template row directly in the table">
-            <span>+ NEW ROW</span>
-          </button>
         </div>
       </div>
 
@@ -420,10 +423,10 @@
                       <input type="text" id="custLocation" class="input-brutal" placeholder="Complete Delivery Address / Location *" minlength="4" maxlength="280" required />
                     </div>
 
-                    <!-- Landmark / Special Delivery Instructions (Required) -->
+                    <!-- Landmark / Gate # (Required) -->
                     <div class="form-cell">
-                      <label for="custLandmark">6. NEAREST LANDMARK / GATE COLOR *</label>
-                      <input type="text" id="custLandmark" class="input-brutal" placeholder="Nearest Landmark / Gate Color *" minlength="2" maxlength="160" required />
+                      <label for="custLandmark">6. LANDMARK / GATE # *</label>
+                      <input type="text" id="custLandmark" class="input-brutal" placeholder="Landmark / Gate # *" minlength="2" maxlength="160" required />
                     </div>
 
                     <!-- Anti-Bot Honeypot Trap (Hidden from real users, catches automated spam bots) -->
@@ -499,6 +502,8 @@
 
   <!-- Google libphonenumber port (libphonenumber-js max metadata bundle) for strict PH Phone Verification -->
   <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.11.14/bundle/libphonenumber-max.js"></script>
+  <!-- Runtime Environment Config (Injected by GitHub Actions or Cloudflare Pages) -->
+  <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

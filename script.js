@@ -3,9 +3,9 @@
  * 100% Server-Authoritative Menu & Pricing via Supabase PostgreSQL
  */
 
-// 1. CONFIGURATION (Supabase Serverless PostgreSQL Database)
-const SUPABASE_URL = 'https://nfxyhsgfttvrmkxmhcvb.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Gj_YQP5Hj898a_1Uf52rQA_UrQGqq3S';
+// 1. CONFIGURATION (Retrieved from Cloudflare Pages Functions `/api/*` or GitHub Actions `window.__CNC_CONFIG__` — NOT hardcoded!)
+const SUPABASE_URL = ((window.__CNC_CONFIG__ && window.__CNC_CONFIG__.SUPABASE_URL) || '').trim();
+const SUPABASE_PUBLISHABLE_KEY = ((window.__CNC_CONFIG__ && window.__CNC_CONFIG__.SUPABASE_PUBLISHABLE_KEY) || '').trim();
 
 // Menu is strictly obtained from the server (Zero hardcoded client fallback menu!)
 let MENU_ITEMS = [];
@@ -261,27 +261,27 @@ async function syncMenuFromServer() {
   renderOrderTable();
   setOrderControlsEnabled(false);
 
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    menuLoadState = 'error';
-    renderMenuGrid();
-    renderOrderTable();
-    return;
-  }
-
   try {
-    const cleanBaseUrl = SUPABASE_URL.trim().replace(/\/+$/, '');
-    const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY };
-    if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
-      headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
-    }
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-    const res = await fetch(
-      `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc`,
-      { headers, signal: controller.signal }
-    );
+    let res;
+    if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
+      // GitHub Pages / GitHub Actions runtime config mode
+      const cleanBaseUrl = SUPABASE_URL.replace(/\/+$/, '');
+      const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY };
+      if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
+        headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
+      }
+      res = await fetch(
+        `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc`,
+        { headers, signal: controller.signal }
+      );
+    } else {
+      // Cloudflare Pages Function mode (Reads SUPABASE_URL & SUPABASE_PUBLISHABLE_KEY from Cloudflare Environment Variables)
+      res = await fetch('/api/menu', { signal: controller.signal });
+    }
+
     clearTimeout(timeoutId);
 
     if (!res.ok) {
@@ -330,17 +330,6 @@ async function syncMenuFromServer() {
     initCardQuantities();
     populateQuickItemSelect();
     updateBuilderBarPreview();
-
-    if (orderRows.length === 0 && MENU_ITEMS.length > 0) {
-      orderRows = [
-        {
-          rowId: cryptoRowId(),
-          itemId: MENU_ITEMS[0].id,
-          qty: 1,
-          notes: ''
-        }
-      ];
-    }
 
     setOrderControlsEnabled(true);
     renderMenuGrid();
@@ -665,7 +654,7 @@ function generateOrderTemplateText() {
   const mode = custFulfillment.value;
   const payment = custPayment.value || 'Cash on Delivery (COD)';
   const location = custLocation.value.trim() || '[Required: Complete Delivery Address / Location]';
-  const landmark = custLandmark.value.trim() || '[Required: Nearest Landmark / Gate Color]';
+  const landmark = custLandmark.value.trim() || '[Required: Landmark / Gate #]';
 
   const itemsLines = orderRows.length > 0
     ? orderRows.map((r, i) => {
@@ -1115,11 +1104,11 @@ function validateOrderForm() {
     return false;
   }
 
-  // 6. Nearest Landmark / Gate Color (Required — All fields must be filled to submit!)
+  // 6. Landmark / Gate # (Required — All fields must be filled to submit!)
   const landmarkVal = custLandmark.value.trim();
   if (landmarkVal.length < 2 || landmarkVal.length > 160) {
     custLandmark.focus();
-    showToast('⚠ Please enter your Nearest Landmark / Gate Color (All fields are required).');
+    showToast('⚠ Please enter your Landmark / Gate # (All fields are required).');
     return false;
   }
 

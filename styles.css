@@ -960,21 +960,41 @@ body.color-photos .menu-card-img,
 
 .table-header-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-/* Quick Builder Bar above the table */
-.quick-builder-bar {
-  background: var(--paper-pure);
-  border: var(--border-heavy);
-  box-shadow: var(--shadow-brutal);
-  padding: 16px 18px;
+/* Unified Square: Combines "POST YOUR ORDER TABLE" & "ADD ITEM TO TABLE" into a single box */
+.section-header-bar.order-header-combined {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 18px 22px;
   margin-bottom: 20px;
+}
+
+.order-header-top-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  width: 100%;
+}
+
+/* Quick Builder Bar integrated directly inside the POST YOUR ORDER TABLE square */
+.quick-builder-bar {
+  background: var(--paper-pure);
+  color: var(--ink);
+  border: 2.5px solid var(--paper-pure);
+  padding: 12px 14px;
+  margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .builder-label {
