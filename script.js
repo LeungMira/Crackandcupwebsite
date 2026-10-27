@@ -305,13 +305,21 @@ async function syncMenuFromServer() {
       if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
         headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
       }
+      const cacheBust = Date.now();
       res = await fetch(
-        `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc`,
-        { headers, signal: controller.signal }
+        `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc&_t=${cacheBust}`,
+        {
+          headers,
+          signal: controller.signal,
+          cache: 'no-store'
+        }
       );
     } else {
       // Cloudflare Pages Function mode (Reads SUPABASE_URL & SUPABASE_PUBLISHABLE_KEY from Cloudflare Environment Variables)
-      res = await fetch('/api/menu', { signal: controller.signal });
+      res = await fetch(`/api/menu?_t=${Date.now()}`, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
     }
 
     clearTimeout(timeoutId);
