@@ -422,9 +422,9 @@ function populateQuickItemSelect() {
   let html = '';
 
   categories.forEach(cat => {
-    html += `<optgroup label="★ ${cat.toUpperCase()}">`;
+    html += `<optgroup label="★ ${escapeHtml(cat.toUpperCase())}">`;
     MENU_ITEMS.filter(i => i.category === cat).forEach(item => {
-      html += `<option value="${item.id}">${item.name} — ₱${item.price}</option>`;
+      html += `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} — ₱${Number(item.price)}</option>`;
     });
     html += `</optgroup>`;
   });
@@ -461,27 +461,32 @@ function renderMenuGrid() {
 
   const cardsHtml = filtered.map(item => {
     const qty = cardQuantities[item.id] || 1;
-    const lineAmt = qty * item.price;
+    const lineAmt = qty * Number(item.price);
+    const safeId = escapeHtml(item.id);
+    const safeName = escapeHtml(item.name);
+    const safeCat = escapeHtml(item.category);
+    const safeDesc = escapeHtml(item.desc);
+    const safeImg = escapeHtml(item.image);
 
     return `
-      <article class="menu-card" data-item-id="${item.id}">
+      <article class="menu-card" data-item-id="${safeId}">
         <div class="menu-card-top">
-          <img src="${item.image}" alt="${item.name}" class="menu-card-img" loading="lazy" />
-          <span class="menu-price-sticker">₱${item.price}</span>
-          <span class="menu-cat-tag">${item.category}</span>
+          <img src="${safeImg}" alt="${safeName}" class="menu-card-img" loading="lazy" />
+          <span class="menu-price-sticker">₱${Number(item.price)}</span>
+          <span class="menu-cat-tag">${safeCat}</span>
         </div>
         <div class="menu-card-body">
-          <h3 class="menu-item-title">${item.name}</h3>
-          <p class="menu-item-desc">${item.desc}</p>
+          <h3 class="menu-item-title">${safeName}</h3>
+          <p class="menu-item-desc">${safeDesc}</p>
 
           <div class="menu-card-actions">
-            <button type="button" class="card-add-btn" data-action="card-add" data-id="${item.id}">
+            <button type="button" class="card-add-btn" data-action="card-add" data-id="${safeId}">
               + ADD TO TABLE
             </button>
             <div class="card-qty-amt-box" title="Quantity & Total Amount for this item">
-              <button type="button" class="card-qty-btn" data-action="card-minus" data-id="${item.id}" aria-label="Decrease quantity">−</button>
+              <button type="button" class="card-qty-btn" data-action="card-minus" data-id="${safeId}" aria-label="Decrease quantity">−</button>
               <span class="card-qty-val">${qty}</span>
-              <button type="button" class="card-qty-btn" data-action="card-plus" data-id="${item.id}" aria-label="Increase quantity">+</button>
+              <button type="button" class="card-qty-btn" data-action="card-plus" data-id="${safeId}" aria-label="Increase quantity">+</button>
               <span class="card-amt-badge">₱${lineAmt}</span>
             </div>
           </div>
@@ -553,10 +558,10 @@ function buildRowSelectOptions(selectedId) {
   let html = '';
   const categories = [...new Set(MENU_ITEMS.map(i => i.category))];
   categories.forEach(cat => {
-    html += `<optgroup label="${cat}">`;
+    html += `<optgroup label="${escapeHtml(cat)}">`;
     MENU_ITEMS.filter(i => i.category === cat).forEach(item => {
       const sel = item.id === selectedId ? 'selected' : '';
-      html += `<option value="${item.id}" ${sel}>${item.name} (₱${item.price})</option>`;
+      html += `<option value="${escapeHtml(item.id)}" ${sel}>${escapeHtml(item.name)} (₱${Number(item.price)})</option>`;
     });
     html += `</optgroup>`;
   });
@@ -566,8 +571,8 @@ function buildRowSelectOptions(selectedId) {
 function renderOrderTable() {
   if (menuLoadState === 'loading') {
     orderTableBody.innerHTML = `
-      <tr>
-        <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono); font-weight:700;">
+      <tr class="table-status-row">
+        <td colspan="5" class="table-status-cell">
           ⏳ Retrieving official menu &amp; prices from server...
         </td>
       </tr>
@@ -578,8 +583,8 @@ function renderOrderTable() {
 
   if (menuLoadState === 'error' || MENU_ITEMS.length === 0) {
     orderTableBody.innerHTML = `
-      <tr>
-        <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono); font-weight:700;">
+      <tr class="table-status-row">
+        <td colspan="5" class="table-status-cell">
           <div class="table-error-banner">
             <p>ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.</p>
             <button type="button" class="btn-brutal btn-primary retry-menu-btn" data-row-action="retry-menu" style="margin-top:10px;">
@@ -595,9 +600,9 @@ function renderOrderTable() {
 
   if (orderRows.length === 0) {
     orderTableBody.innerHTML = `
-      <tr>
-        <td colspan="5" style="text-align:center; padding: 26px; font-family: var(--font-mono);">
-          No items in your order table yet! Click <strong>+ ADD ITEM TO TABLE</strong> above.
+      <tr class="table-status-row">
+        <td colspan="5" class="table-status-cell">
+          No items in your order yet! Click <strong>+ ADD ANOTHER ITEM ROW</strong> below or pick from <strong>MENU</strong>.
         </td>
       </tr>
     `;
@@ -1253,6 +1258,9 @@ async function handleOrderSubmit() {
   try {
     const serverResult = await submitOrderToSupabaseServer(rpcPayload);
 
+    const serverAssignedRef = (serverResult && serverResult.order_ref)
+      ? serverResult.order_ref
+      : submittedRef;
     const verifiedReceipt = (serverResult && serverResult.verified_receipt)
       ? serverResult.verified_receipt
       : generateOrderTemplateText();
@@ -1260,32 +1268,31 @@ async function handleOrderSubmit() {
       ? `₱${Number(serverResult.verified_total).toLocaleString()}`
       : summaryTotalAmount.textContent;
 
+    orderReference = serverAssignedRef;
+    orderRefCode.textContent = serverAssignedRef;
     liveOrderTemplatePreview.textContent = verifiedReceipt;
     lastSubmittedFingerprint = currentFingerprint;
     setCooldownUntil(Date.now() + 30000);
     recordHourlySubmission();
     await copyToClipboard(verifiedReceipt);
 
-    showToast(`🎉 Order ${submittedRef} verified (${verifiedTotal}) & saved! Receipt copied.`);
-
-    orderReference = generateOrderRef();
-    orderRefCode.textContent = orderReference;
+    showToast(`🎉 Order ${serverAssignedRef} verified (${verifiedTotal}) & saved! Receipt copied.`);
 
     let remaining = 30;
     const cdInterval = setInterval(() => {
       remaining -= 1;
       if (remaining > 0) {
-        btn.innerHTML = `✓ SENT (${submittedRef}) • WAIT ${remaining}s`;
+        btn.textContent = `✓ SENT (${serverAssignedRef}) • WAIT ${remaining}s`;
       } else {
         clearInterval(cdInterval);
-        btn.innerHTML = originalLabel;
+        btn.textContent = originalLabel;
         btn.disabled = false;
       }
     }, 1000);
   } catch (err) {
     const errMsg = err && err.message ? err.message : 'Network busy, please try again';
     showToast(`⚠ ${errMsg}`);
-    btn.innerHTML = originalLabel;
+    btn.textContent = originalLabel;
     btn.disabled = false;
   } finally {
     isSubmittingOrder = false;
@@ -1311,7 +1318,8 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 let toastTimer = null;

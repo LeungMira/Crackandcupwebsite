@@ -2258,6 +2258,32 @@ body.mobile-mode .order-fillout-table tbody tr {
   align-items: center;
 }
 
+/* Status / Empty / Error rows must span 100% width instead of the 34px '#' column! */
+.table-status-cell {
+  text-align: center;
+  padding: 24px 16px !important;
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+body.mobile-mode .order-fillout-table tbody tr.table-status-row,
+body.mobile-mode .order-fillout-table tbody tr:not([data-row-id]) {
+  display: block !important;
+  width: 100% !important;
+  padding: 18px 14px !important;
+  text-align: center;
+}
+
+body.mobile-mode .order-fillout-table tbody td.table-status-cell,
+body.mobile-mode .order-fillout-table tbody td[colspan] {
+  grid-column: 1 / -1 !important;
+  display: block !important;
+  width: 100% !important;
+  text-align: center !important;
+  padding: 6px 4px !important;
+}
+
 body.mobile-mode .order-fillout-table tbody td {
   border: none;
   padding: 0;
