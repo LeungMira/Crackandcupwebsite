@@ -4,8 +4,13 @@
  */
 
 // 1. CONFIGURATION (Retrieved from Cloudflare Pages Functions `/api/*` or GitHub Actions `window.__CNC_CONFIG__` — NOT hardcoded!)
-const SUPABASE_URL = ((window.__CNC_CONFIG__ && window.__CNC_CONFIG__.SUPABASE_URL) || '').trim();
-const SUPABASE_PUBLISHABLE_KEY = ((window.__CNC_CONFIG__ && window.__CNC_CONFIG__.SUPABASE_PUBLISHABLE_KEY) || '').trim();
+const SUPABASE_URL = ((window.__CNC_CONFIG__ && (window.__CNC_CONFIG__.SUPABASE_URL || window.__CNC_CONFIG__.supabaseUrl)) || '').trim();
+const SUPABASE_PUBLISHABLE_KEY = ((window.__CNC_CONFIG__ && (
+  window.__CNC_CONFIG__.SUPABASE_PUBLISHABLE_KEY ||
+  window.__CNC_CONFIG__.SUPABASE_ANON_KEY ||
+  window.__CNC_CONFIG__.SUPABASE_KEY ||
+  window.__CNC_CONFIG__.supabaseKey
+)) || '').trim();
 
 // Menu is strictly obtained from the server (Zero hardcoded client fallback menu!)
 let MENU_ITEMS = [];
@@ -306,13 +311,13 @@ async function syncMenuFromServer() {
     if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       // GitHub Pages / GitHub Actions runtime config mode
       const cleanBaseUrl = SUPABASE_URL.replace(/\/+$/, '');
-      const headers = { 'apikey': SUPABASE_PUBLISHABLE_KEY };
-      if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
-        headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
-      }
-      const cacheBust = Date.now();
+      const headers = {
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+      };
+      // Note: Do NOT append arbitrary params like `&_t=` because PostgREST treats them as column filters!
       res = await fetch(
-        `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc&_t=${cacheBust}`,
+        `${cleanBaseUrl}/rest/v1/menu_items?select=*&order=sort_order.asc`,
         {
           headers,
           signal: controller.signal,
@@ -321,7 +326,7 @@ async function syncMenuFromServer() {
       );
     } else {
       // Cloudflare Pages Function mode (Reads SUPABASE_URL & SUPABASE_PUBLISHABLE_KEY from Cloudflare Environment Variables)
-      res = await fetch(`/api/menu?_t=${Date.now()}`, {
+      res = await fetch('/api/menu', {
         signal: controller.signal,
         cache: 'no-store'
       });
@@ -330,7 +335,9 @@ async function syncMenuFromServer() {
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      const errText = await res.text().catch(() => '');
+      console.error(`[Crack & Cup] Supabase menu query failed (${res.status}):`, errText);
+      throw new Error(`HTTP ${res.status}: ${errText}`);
     }
 
     const rawItems = await res.json();
@@ -359,7 +366,8 @@ async function syncMenuFromServer() {
     setOrderControlsEnabled(true);
     renderMenuGrid();
     renderOrderTable();
-  } catch {
+  } catch (err) {
+    console.error('[Crack & Cup] Error syncing menu from server:', err);
     // NO client-side fallback menu: if the server menu can't be loaded, ordering is disabled.
     MENU_ITEMS = [];
     orderRows = [];
@@ -1353,11 +1361,9 @@ async function submitOrderToSupabaseServer(rpcArgs) {
 
   const headers = {
     'Content-Type': 'application/json',
-    'apikey': SUPABASE_PUBLISHABLE_KEY
+    'apikey': SUPABASE_PUBLISHABLE_KEY,
+    'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
   };
-  if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
-    headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
-  }
 
   const res = await fetch(rpcEndpoint, {
     method: 'POST',
