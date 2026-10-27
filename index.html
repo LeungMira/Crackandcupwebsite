@@ -211,16 +211,20 @@
       </div>
     </header>
 
-    <!-- STEP 1: VISUAL QUICK-ADD MENU (Only Pictured Food Items + "More items soon!" Card) -->
+    <!-- STEP 1: VISUAL QUICK-ADD MENU (100% Server-Driven Menu & Pricing from Supabase) -->
     <section id="menu-section" class="menu-section">
       <div class="section-header-bar">
         <div>
-          <span class="step-badge">MENU BOARD // FOOD &amp; DRINKS</span>
-          <h2 class="section-title">CHAO FAN BOWLS <span class="amp-clean">&amp;</span> BREWS</h2>
+          <span class="step-badge">MENU BOARD // BREAKFAST &amp; LUNCH</span>
+          <h2 class="section-title">RICE BOWLS <span class="amp-clean">&amp;</span> WINGS</h2>
+          <div class="menu-promo-stickers">
+            <span id="menuPriceBadge" class="badge-price-hero hidden"></span>
+            <span id="menuUpsizeBadge" class="badge-upsize-hero hidden"></span>
+          </div>
         </div>
         <div class="menu-header-right">
           <p class="section-sub">
-            Adjust <strong>Quantity</strong> &amp; check the <strong>Amount</strong> right beside each button, or click <strong>ORDER NOW</strong> to open the order table!
+            Official menu &amp; prices retrieved live from our server. Select <strong>Regular</strong> or <strong>Meal Upsize</strong>, adjust quantity, and add to your order table.
           </p>
           <button type="button" id="menuSectionOrderNowBtn" class="btn-brutal btn-secondary btn-sm">
             ★ ORDER NOW (OPEN TABLE)
@@ -228,14 +232,12 @@
         </div>
       </div>
 
-      <!-- Category Filter Tabs (Only Food & Drinks — No Smash Room Add-ons) -->
-      <div class="category-tabs" role="tablist">
-        <button type="button" class="cat-tab active" data-category="all">★ ALL FEATURED</button>
-        <button type="button" class="cat-tab" data-category="Chao Fan Bowls">🍚 CHAO FAN &amp; RICE BOWLS</button>
-        <button type="button" class="cat-tab" data-category="Drinks & More">☕ DRINKS &amp; MORE (SOON!)</button>
+      <!-- Category Filter Tabs (Populated dynamically from Supabase menu categories) -->
+      <div id="categoryTabs" class="category-tabs" role="tablist">
+        <button type="button" class="cat-tab active" data-category="all">★ ALL</button>
       </div>
 
-      <!-- Menu Cards Grid (Populated by script.js with pictured items + "More items soon!" card) -->
+      <!-- Menu Cards Grid (Populated strictly from Supabase public.menu_items) -->
       <div id="menuGrid" class="menu-grid"></div>
 
       <!-- Big Centered ORDER NOW Trigger Banner beneath the Menu -->
@@ -289,6 +291,14 @@
               </select>
             </div>
 
+            <!-- Size Selector (Populated dynamically from server item prices) -->
+            <div class="builder-field builder-size-select-wrap">
+              <label for="quickSizeSelect" class="sr-only">Select Meal Size</label>
+              <select id="quickSizeSelect" class="input-brutal builder-size-select" title="Choose Meal Size">
+                <option value="Regular">Regular</option>
+              </select>
+            </div>
+
             <!-- Button/Control Next to It: QUANTITY & AMOUNT -->
             <div class="qty-amount-pill" title="Adjust Quantity and see computed Amount before adding">
               <div class="pill-qty-group">
@@ -324,7 +334,7 @@
             <img src="Logo-removebg-preview.png" alt="Crack & Cup" class="sheet-mini-logo" />
             <div>
               <strong>CRACK &amp; CUP // OFFICIAL ORDER SLIP</strong>
-              <span>AUTO-TEMPLATE FILLOUT TABLE • CURRENCY: PHP (₱)</span>
+              <span>AUTO-TEMPLATE FILLOUT TABLE • SERVER-VERIFIED PRICING (PHP ₱)</span>
             </div>
           </div>
           <div class="sheet-meta">
@@ -338,8 +348,8 @@
             <thead>
               <tr>
                 <th class="col-num">#</th>
-                <th class="col-item">ITEM / ORDER SELECTION <span class="th-hint">(Auto-Template Dropdown or Custom)</span></th>
-                <th class="col-notes">ADD-ONS / NOTES <span class="th-hint">(Sugar, Ice, Egg +₱15)</span></th>
+                <th class="col-item">ITEM &amp; SIZE <span class="th-hint">(Server-Verified Bowl &amp; Size)</span></th>
+                <th class="col-notes">ADD-ONS / NOTES <span class="th-hint">(e.g. Extra spicy, no scallions)</span></th>
                 <th class="col-qty-amt">QUANTITY &amp; AMOUNT <span class="th-hint">(Qty Buttons + Computed ₱ Amount)</span></th>
                 <th class="col-action">DEL</th>
               </tr>
@@ -490,6 +500,7 @@
           <div>
             <h4>CRACK <span class="amp-clean">&amp;</span> CUP</h4>
             <p>RAGE ROOM &amp; COFFEE SHOP • “COME TO LOSE THE BLUES, AND STAY FOR THE BREWS.”</p>
+            <p class="footer-call"><strong>📞 CALL OR TEXT: 0954 360 0164</strong></p>
           </div>
         </div>
         <div class="footer-tags">

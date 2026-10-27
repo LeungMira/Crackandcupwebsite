@@ -15,6 +15,7 @@ let menuLoadState = 'loading'; // 'loading' | 'loaded' | 'error'
 let orderRows = [];
 let activeCategory = 'all';
 let cardQuantities = {};
+let cardSizes = {};
 let orderReference = generateOrderRef();
 let isManualMobilePreview = false;
 let activeMobilePage = 'menu'; // 'menu' | 'order'
@@ -23,6 +24,9 @@ function initCardQuantities() {
   MENU_ITEMS.forEach(item => {
     if (!cardQuantities[item.id]) {
       cardQuantities[item.id] = 1;
+    }
+    if (!cardSizes[item.id]) {
+      cardSizes[item.id] = 'Regular';
     }
   });
 }
@@ -38,6 +42,7 @@ const menuSection = document.getElementById('menu-section');
 const orderTableSection = document.getElementById('order-table-section');
 const orderNowPromptBox = document.getElementById('orderNowPromptBox');
 const quickItemSelect = document.getElementById('quickItemSelect');
+const quickSizeSelect = document.getElementById('quickSizeSelect');
 const builderQtyMinus = document.getElementById('builderQtyMinus');
 const builderQtyPlus = document.getElementById('builderQtyPlus');
 const builderQtyInput = document.getElementById('builderQtyInput');
@@ -280,7 +285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setOrderControlsEnabled(enabled) {
-  [quickItemSelect, builderQtyMinus, builderQtyPlus, builderQtyInput, addToTableBtn, addBlankRowBtn, tableFooterAddBtn].forEach(el => {
+  [quickItemSelect, quickSizeSelect, builderQtyMinus, builderQtyPlus, builderQtyInput, addToTableBtn, addBlankRowBtn, tableFooterAddBtn].forEach(el => {
     if (el) el.disabled = !enabled;
   });
   const sampleBtn = document.getElementById('loadSampleOrderBtn');
@@ -329,45 +334,25 @@ async function syncMenuFromServer() {
     }
 
     const rawItems = await res.json();
-    const serverItems = Array.isArray(rawItems)
-      ? rawItems.filter(r => r.is_available !== false && r.available !== false)
-      : [];
+    if (!Array.isArray(rawItems)) {
+      throw new Error('Malformed menu returned from server');
+    }
 
-    if (serverItems.length === 0) {
+    // STRICT: Every name, price, upsize price, image & description comes ONLY from Supabase.
+    // Rows with missing/invalid data are dropped — nothing is invented on the client.
+    MENU_ITEMS = rawItems
+      .filter(r => r && r.is_available !== false)
+      .map(normalizeServerMenuRow)
+      .filter(Boolean);
+
+    if (MENU_ITEMS.length === 0) {
       throw new Error('Empty menu returned from server');
     }
 
-    const defaultVisuals = {
-      'bowl-pork-bbq': { image: 'assets/pork-bbq-bowl.png', desc: 'Smoky glazed grilled pork belly slices over wok-charred egg chao fan.' },
-      'bowl-sisig': { image: 'assets/sisig-bowl.jpg', desc: 'Savory sizzling sisig topped with a sunny-side egg, scallions & sesame.' },
-      'bowl-cheesy-poppers': { image: 'assets/cheesy-poppers-bowl.jpg', desc: 'Crunchy golden chicken poppers drizzled with rich melted cheese sauce.' },
-      'bowl-hungarian': { image: 'assets/hungarian-bowl.jpg', desc: 'Juicy char-grilled Hungarian sausage with smoky cheese drizzle over chao fan.' },
-      'bowl-creamy-chicken': { image: 'assets/creamy-chicken-bowl.jpg', desc: 'Tender chicken bites in herbed garlic-cream glaze over egg fried rice.' },
-      'bowl-adobo': { image: 'assets/adobo-bowl.jpg', desc: 'Slow-braised savory garlic pork adobo cubes with bay leaf & sesame.' },
-      'bowl-liempo': { image: 'assets/liempo-bowl.jpg', desc: 'Char-grilled marinated pork belly strips served over signature chao fan.' },
-      'b1': { image: 'assets/pork-bbq-bowl.png', desc: 'Smoky glazed grilled pork belly slices over wok-charred egg chao fan.' },
-      'b2': { image: 'assets/sisig-bowl.jpg', desc: 'Savory sizzling sisig topped with a sunny-side egg, scallions & sesame.' },
-      'b3': { image: 'assets/cheesy-poppers-bowl.jpg', desc: 'Crunchy golden chicken poppers drizzled with rich melted cheese sauce.' },
-      'b4': { image: 'assets/hungarian-bowl.jpg', desc: 'Juicy char-grilled Hungarian sausage with smoky cheese drizzle over chao fan.' },
-      'b5': { image: 'assets/creamy-chicken-bowl.jpg', desc: 'Tender chicken bites in herbed garlic-cream glaze over egg fried rice.' },
-      'b6': { image: 'assets/adobo-bowl.jpg', desc: 'Slow-braised savory garlic pork adobo cubes with bay leaf & sesame.' },
-      'b7': { image: 'assets/liempo-bowl.jpg', desc: 'Char-grilled marinated pork belly strips served over signature chao fan.' }
-    };
-
-    MENU_ITEMS = serverItems.map(row => {
-      const vis = defaultVisuals[row.id] || { image: 'assets/sisig-bowl.jpg', desc: 'Freshly prepared Crack & Cup signature rice bowl.' };
-      return {
-        id: row.id,
-        name: row.name,
-        category: row.category || 'Chao Fan Bowls',
-        price: Number(row.price),
-        image: row.image || vis.image,
-        desc: row.description || vis.desc
-      };
-    });
-
     menuLoadState = 'loaded';
     initCardQuantities();
+    renderCategoryTabs();
+    renderMenuPriceBadges();
     populateQuickItemSelect();
     updateBuilderBarPreview();
 
@@ -375,11 +360,110 @@ async function syncMenuFromServer() {
     renderMenuGrid();
     renderOrderTable();
   } catch {
+    // NO client-side fallback menu: if the server menu can't be loaded, ordering is disabled.
     MENU_ITEMS = [];
+    orderRows = [];
     menuLoadState = 'error';
     setOrderControlsEnabled(false);
+    renderCategoryTabs();
+    renderMenuPriceBadges();
+    populateQuickItemSelect();
     renderMenuGrid();
     renderOrderTable();
+  }
+}
+
+// Validate a single Supabase `menu_items` row. Returns null if anything is invalid.
+function normalizeServerMenuRow(row) {
+  const id = typeof row.id === 'string' ? row.id.trim() : '';
+  const name = typeof row.name === 'string' ? row.name.trim() : '';
+  const category = typeof row.category === 'string' ? row.category.trim() : '';
+  const price = Number(row.price);
+  if (!/^[a-z0-9-]{1,64}$/.test(id) || !name || !category) return null;
+  if (!Number.isFinite(price) || price <= 0) return null;
+
+  let upsizePrice = null;
+  if (row.upsize_price !== null && row.upsize_price !== undefined) {
+    const up = Number(row.upsize_price);
+    if (Number.isFinite(up) && up > price) upsizePrice = up;
+  }
+
+  return {
+    id,
+    name,
+    category,
+    price,
+    upsizePrice,
+    image: sanitizeImageUrl(row.image),
+    desc: typeof row.description === 'string' ? row.description : ''
+  };
+}
+
+// Only allow images from our own /assets folder or HTTPS URLs.
+function sanitizeImageUrl(url) {
+  if (typeof url !== 'string') return '';
+  const u = url.trim();
+  if (/^assets\/[A-Za-z0-9._\-\/%() ]+$/.test(u) && !u.includes('..')) return u;
+  if (/^https:\/\/[^\s"'<>]+$/i.test(u)) return u;
+  return '';
+}
+
+// Unit price for a given size — always from server data (Upsize only if the server offers it).
+function getUnitPrice(item, size) {
+  if (size === 'Upsize' && item && item.upsizePrice !== null && item.upsizePrice !== undefined) {
+    return item.upsizePrice;
+  }
+  return item ? item.price : 0;
+}
+
+function hasUpsize(item) {
+  return !!item && item.upsizePrice !== null && item.upsizePrice !== undefined;
+}
+
+// Category tabs are generated from the categories returned by the server.
+function renderCategoryTabs() {
+  const tabsEl = document.getElementById('categoryTabs');
+  if (!tabsEl) return;
+  const categories = [...new Set(MENU_ITEMS.map(i => i.category))];
+  if (activeCategory !== 'all' && !categories.includes(activeCategory)) {
+    activeCategory = 'all';
+  }
+  const allTab = `<button type="button" class="cat-tab ${activeCategory === 'all' ? 'active' : ''}" data-category="all">★ ALL (${MENU_ITEMS.length})</button>`;
+  const catTabs = categories.map(cat => {
+    const count = MENU_ITEMS.filter(i => i.category === cat).length;
+    const safeCat = escapeHtml(cat);
+    return `<button type="button" class="cat-tab ${activeCategory === cat ? 'active' : ''}" data-category="${safeCat}">${escapeHtml(cat.toUpperCase())} (${count})</button>`;
+  }).join('');
+  tabsEl.innerHTML = allTab + catTabs;
+}
+
+// Header price badges are computed from server prices (hidden if the menu didn't load).
+function renderMenuPriceBadges() {
+  const priceBadge = document.getElementById('menuPriceBadge');
+  const upsizeBadge = document.getElementById('menuUpsizeBadge');
+  if (!priceBadge || !upsizeBadge) return;
+
+  if (MENU_ITEMS.length === 0) {
+    priceBadge.classList.add('hidden');
+    upsizeBadge.classList.add('hidden');
+    return;
+  }
+
+  const prices = MENU_ITEMS.map(i => i.price);
+  const minPrice = Math.min(...prices);
+  const allSame = prices.every(p => p === minPrice);
+  priceBadge.textContent = allSame ? `EVERYTHING ₱${minPrice}` : `FROM ₱${minPrice}`;
+  priceBadge.classList.remove('hidden');
+
+  const diffs = MENU_ITEMS.filter(hasUpsize).map(i => i.upsizePrice - i.price);
+  if (diffs.length > 0 && diffs.every(d => d === diffs[0])) {
+    upsizeBadge.textContent = `MEAL UPSIZE +₱${diffs[0]}`;
+    upsizeBadge.classList.remove('hidden');
+  } else if (diffs.length > 0) {
+    upsizeBadge.textContent = 'MEAL UPSIZE AVAILABLE';
+    upsizeBadge.classList.remove('hidden');
+  } else {
+    upsizeBadge.classList.add('hidden');
   }
 }
 
@@ -469,7 +553,15 @@ function renderMenuGrid() {
 
   const cardsHtml = filtered.map(item => {
     const qty = cardQuantities[item.id] || 1;
-    const lineAmt = qty * Number(item.price);
+    const canUpsize = hasUpsize(item);
+    const isUpsize = canUpsize && (cardSizes[item.id] || 'Regular') === 'Upsize';
+    const unitPrice = getUnitPrice(item, isUpsize ? 'Upsize' : 'Regular');
+    const lineAmt = qty * unitPrice;
+    const sizePillHtml = canUpsize ? `
+          <div class="card-size-pill" title="Choose Regular portion or Meal Upsize">
+            <button type="button" class="card-size-btn ${!isUpsize ? 'active' : ''}" data-action="card-size" data-id="${escapeHtml(item.id)}" data-size="Regular">REGULAR ₱${item.price}</button>
+            <button type="button" class="card-size-btn ${isUpsize ? 'active' : ''}" data-action="card-size" data-id="${escapeHtml(item.id)}" data-size="Upsize">★ UPSIZE +₱${item.upsizePrice - item.price} (₱${item.upsizePrice})</button>
+          </div>` : '';
     const safeId = escapeHtml(item.id);
     const safeName = escapeHtml(item.name);
     const safeCat = escapeHtml(item.category);
@@ -480,12 +572,13 @@ function renderMenuGrid() {
       <article class="menu-card" data-item-id="${safeId}">
         <div class="menu-card-top">
           <img src="${safeImg}" alt="${safeName}" class="menu-card-img" loading="lazy" />
-          <span class="menu-price-sticker">₱${Number(item.price)}</span>
+          <span class="menu-price-sticker">₱${unitPrice}</span>
           <span class="menu-cat-tag">${safeCat}</span>
         </div>
         <div class="menu-card-body">
           <h3 class="menu-item-title">${safeName}</h3>
           <p class="menu-item-desc">${safeDesc}</p>
+${sizePillHtml}
 
           <div class="menu-card-actions">
             <button type="button" class="card-add-btn" data-action="card-add" data-id="${safeId}">
@@ -523,13 +616,32 @@ function updateBuilderBarPreview() {
     return;
   }
   const item = getMenuItemById(quickItemSelect.value);
+  populateQuickSizeSelect(item);
+  const size = quickSizeSelect ? quickSizeSelect.value : 'Regular';
+  const unitPrice = getUnitPrice(item, size);
   const qty = Math.max(1, Math.min(30, parseInt(builderQtyInput.value, 10) || 1));
-  const amount = item.price * qty;
+  const amount = unitPrice * qty;
   builderComputedAmount.textContent = `₱${amount.toLocaleString()}`;
 }
 
+// Size dropdown options are built from the selected item's server prices.
+function populateQuickSizeSelect(item) {
+  if (!quickSizeSelect) return;
+  const previous = quickSizeSelect.value;
+  if (!item || menuLoadState !== 'loaded') {
+    quickSizeSelect.innerHTML = '<option value="Regular">Regular</option>';
+    return;
+  }
+  let html = `<option value="Regular">Regular (₱${item.price})</option>`;
+  if (hasUpsize(item)) {
+    html += `<option value="Upsize">★ Upsize +₱${item.upsizePrice - item.price} (₱${item.upsizePrice})</option>`;
+  }
+  quickSizeSelect.innerHTML = html;
+  quickSizeSelect.value = (previous === 'Upsize' && hasUpsize(item)) ? 'Upsize' : 'Regular';
+}
+
 // 10. ADD ITEM TO ORDER TABLE
-function addItemToOrderTable(itemId, qty = 1, notes = '') {
+function addItemToOrderTable(itemId, qty = 1, size = 'Regular', notes = '') {
   if (menuLoadState !== 'loaded') {
     showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
     return;
@@ -537,12 +649,15 @@ function addItemToOrderTable(itemId, qty = 1, notes = '') {
   const cleanQty = Math.max(1, Math.min(30, parseInt(qty, 10) || 1));
   const menuObj = MENU_ITEMS.find(m => m.id === itemId);
   if (!menuObj) return;
+  const cleanSize = (size === 'Upsize' && hasUpsize(menuObj)) ? 'Upsize' : 'Regular';
 
-  const existingRow = orderRows.find(r => r.itemId === itemId && (!notes || r.notes === notes));
+  const existingRow = orderRows.find(r => r.itemId === itemId && (r.size || 'Regular') === cleanSize && (!notes || r.notes === notes));
+  const unitPrice = getUnitPrice(menuObj, cleanSize);
+
   if (existingRow) {
     existingRow.qty = Math.min(30, existingRow.qty + cleanQty);
     renderOrderTable();
-    showToast(`Updated: ${existingRow.qty}x ${menuObj.name} (₱${existingRow.qty * menuObj.price})`);
+    showToast(`Updated: ${existingRow.qty}x ${menuObj.name} [${cleanSize}] (₱${existingRow.qty * unitPrice})`);
     return;
   }
 
@@ -554,11 +669,12 @@ function addItemToOrderTable(itemId, qty = 1, notes = '') {
   orderRows.push({
     rowId: cryptoRowId(),
     itemId: menuObj.id,
+    size: cleanSize,
     qty: cleanQty,
     notes: notes || ''
   });
   renderOrderTable();
-  showToast(`Added to table: ${cleanQty}x ${menuObj.name} (₱${cleanQty * menuObj.price})`);
+  showToast(`Added to table: ${cleanQty}x ${menuObj.name} [${cleanSize}] (₱${cleanQty * unitPrice})`);
 }
 
 // 11. RENDER THE ORDER FILLOUT TABLE
@@ -566,7 +682,7 @@ function buildRowSelectOptions(selectedId) {
   let html = '';
   const categories = [...new Set(MENU_ITEMS.map(i => i.category))];
   categories.forEach(cat => {
-    html += `<optgroup label="${escapeHtml(cat)}">`;
+    html += `<optgroup label="★ ${escapeHtml(cat.toUpperCase())}">`;
     MENU_ITEMS.filter(i => i.category === cat).forEach(item => {
       const sel = item.id === selectedId ? 'selected' : '';
       html += `<option value="${escapeHtml(item.id)}" ${sel}>${escapeHtml(item.name)} (₱${Number(item.price)})</option>`;
@@ -617,7 +733,10 @@ function renderOrderTable() {
   } else {
     orderTableBody.innerHTML = orderRows.map((row, idx) => {
       const menuObj = getMenuItemById(row.itemId);
-      const lineTotal = row.qty * menuObj.price;
+      if (row.size === 'Upsize' && !hasUpsize(menuObj)) row.size = 'Regular';
+      const isUpsize = row.size === 'Upsize';
+      const unitPrice = getUnitPrice(menuObj, row.size);
+      const lineTotal = row.qty * unitPrice;
 
       return `
         <tr data-row-id="${row.rowId}">
@@ -628,6 +747,13 @@ function renderOrderTable() {
               <select class="row-select" data-row-action="select-item" data-row-id="${row.rowId}" aria-label="Select item for row ${idx + 1}">
                 ${buildRowSelectOptions(menuObj.id)}
               </select>
+              <div class="row-size-wrap">
+                <label class="row-size-label">SIZE:</label>
+                <select class="row-size-select" data-row-action="select-size" data-row-id="${row.rowId}" aria-label="Select size for row ${idx + 1}">
+                  <option value="Regular" ${!isUpsize ? 'selected' : ''}>Regular (₱${menuObj.price})</option>
+                  ${hasUpsize(menuObj) ? `<option value="Upsize" ${isUpsize ? 'selected' : ''}>★ Upsize +₱${menuObj.upsizePrice - menuObj.price} (₱${menuObj.upsizePrice})</option>` : ''}
+                </select>
+              </div>
             </div>
           </td>
 
@@ -652,7 +778,7 @@ function renderOrderTable() {
               </div>
 
               <div class="row-amount-box" title="Server Price × Quantity = Line Amount">
-                <span class="unit-price-tag">@₱${menuObj.price}</span>
+                <span class="unit-price-tag">@₱${unitPrice}</span>
                 <span class="row-line-total">₱${lineTotal.toLocaleString()}</span>
               </div>
             </div>
@@ -673,7 +799,8 @@ function updateTotalsAndTemplate() {
   const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
   const totalAmount = orderRows.reduce((acc, r) => {
     const item = getMenuItemById(r.itemId);
-    return acc + ((parseInt(r.qty, 10) || 0) * item.price);
+    const unitPrice = getUnitPrice(item, r.size);
+    return acc + ((parseInt(r.qty, 10) || 0) * unitPrice);
   }, 0);
 
   summaryTotalQty.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'}`;
@@ -689,7 +816,8 @@ function generateOrderTemplateText() {
   const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
   const totalAmount = orderRows.reduce((acc, r) => {
     const item = getMenuItemById(r.itemId);
-    return acc + ((parseInt(r.qty, 10) || 0) * item.price);
+    const unitPrice = getUnitPrice(item, r.size);
+    return acc + ((parseInt(r.qty, 10) || 0) * unitPrice);
   }, 0);
 
   const name = custName.value.trim() || '[Required: Customer Name]';
@@ -704,9 +832,12 @@ function generateOrderTemplateText() {
   const itemsLines = orderRows.length > 0
     ? orderRows.map((r, i) => {
       const item = getMenuItemById(r.itemId);
-      const lineAmt = r.qty * item.price;
+      const isUp = r.size === 'Upsize' && hasUpsize(item);
+      const unitPrice = getUnitPrice(item, isUp ? 'Upsize' : 'Regular');
+      const lineAmt = r.qty * unitPrice;
+      const sizeTag = isUp ? ' [Upsize]' : ' [Regular]';
       const noteStr = r.notes ? ` (${r.notes})` : '';
-      return `${i + 1}. [${r.qty}x] ${item.name}${noteStr} — ₱${lineAmt.toLocaleString()} (@₱${item.price})`;
+      return `${i + 1}. [${r.qty}x] ${item.name}${sizeTag}${noteStr} — ₱${lineAmt.toLocaleString()} (@₱${unitPrice})`;
     }).join('\n')
     : '   (No items added yet)';
 
@@ -766,14 +897,18 @@ function attachEventListeners() {
     hideOrderTableBtn.addEventListener('click', hideOrderingTable);
   }
 
-  document.querySelectorAll('.cat-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  // Category tabs are generated from server categories, so use event delegation.
+  const categoryTabsEl = document.getElementById('categoryTabs');
+  if (categoryTabsEl) {
+    categoryTabsEl.addEventListener('click', e => {
+      const tab = e.target.closest('.cat-tab');
+      if (!tab) return;
+      categoryTabsEl.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      activeCategory = tab.dataset.category;
+      activeCategory = tab.dataset.category || 'all';
       renderMenuGrid();
     });
-  });
+  }
 
   const toggleMobileModeBtn = document.getElementById('toggleMobileModeBtn');
   if (toggleMobileModeBtn) {
@@ -797,6 +932,24 @@ function attachEventListeners() {
     });
   }
 
+  // Refresh a single card's price sticker, quantity, and amount from server prices (no re-render).
+  const refreshCardPricing = (card, id) => {
+    const item = MENU_ITEMS.find(m => m.id === id);
+    if (!card || !item) return;
+    const size = (cardSizes[id] === 'Upsize' && hasUpsize(item)) ? 'Upsize' : 'Regular';
+    const unitPrice = getUnitPrice(item, size);
+    const qty = cardQuantities[id] || 1;
+    card.querySelectorAll('.card-size-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.size === size);
+    });
+    const sticker = card.querySelector('.menu-price-sticker');
+    if (sticker) sticker.textContent = `₱${unitPrice}`;
+    const val = card.querySelector('.card-qty-val');
+    if (val) val.textContent = qty;
+    const badge = card.querySelector('.card-amt-badge');
+    if (badge) badge.textContent = `₱${qty * unitPrice}`;
+  };
+
   menuGrid.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
@@ -808,22 +961,30 @@ function attachEventListeners() {
       return;
     }
 
-    if (action === 'card-minus') {
+    const card = btn.closest('.menu-card');
+
+    if (action === 'card-size') {
+      const item = MENU_ITEMS.find(m => m.id === id);
+      cardSizes[id] = (btn.dataset.size === 'Upsize' && hasUpsize(item)) ? 'Upsize' : 'Regular';
+      refreshCardPricing(card, id);
+    } else if (action === 'card-minus') {
       cardQuantities[id] = Math.max(1, (cardQuantities[id] || 1) - 1);
-      renderMenuGrid();
+      refreshCardPricing(card, id);
     } else if (action === 'card-plus') {
       cardQuantities[id] = Math.min(30, (cardQuantities[id] || 1) + 1);
-      renderMenuGrid();
+      refreshCardPricing(card, id);
     } else if (action === 'card-add') {
-      const qtyToAdd = cardQuantities[id] || 1;
-      addItemToOrderTable(id, qtyToAdd);
+      addItemToOrderTable(id, cardQuantities[id] || 1, cardSizes[id] || 'Regular');
       cardQuantities[id] = 1;
-      renderMenuGrid();
+      refreshCardPricing(card, id);
       openOrderingTable(true);
     }
   });
 
   quickItemSelect.addEventListener('change', updateBuilderBarPreview);
+  if (quickSizeSelect) {
+    quickSizeSelect.addEventListener('change', updateBuilderBarPreview);
+  }
 
   builderQtyMinus.addEventListener('click', () => {
     builderQtyInput.value = Math.max(1, (parseInt(builderQtyInput.value, 10) || 1) - 1);
@@ -841,7 +1002,8 @@ function attachEventListeners() {
     if (menuLoadState !== 'loaded') return;
     const item = getMenuItemById(quickItemSelect.value);
     const qty = Math.max(1, Math.min(30, parseInt(builderQtyInput.value, 10) || 1));
-    addItemToOrderTable(item.id, qty);
+    const size = quickSizeSelect ? quickSizeSelect.value : 'Regular';
+    addItemToOrderTable(item.id, qty, size);
     builderQtyInput.value = 1;
     updateBuilderBarPreview();
   });
@@ -856,6 +1018,7 @@ function attachEventListeners() {
     orderRows.push({
       rowId: cryptoRowId(),
       itemId: firstItem.id,
+      size: 'Regular',
       qty: 1,
       notes: ''
     });
@@ -903,7 +1066,14 @@ function attachEventListeners() {
       const found = MENU_ITEMS.find(m => m.id === el.value);
       if (found) {
         row.itemId = found.id;
+        if (row.size === 'Upsize' && !hasUpsize(found)) {
+          row.size = 'Regular';
+        }
       }
+      renderOrderTable();
+    } else if (action === 'select-size') {
+      const item = getMenuItemById(row.itemId);
+      row.size = (el.value === 'Upsize' && hasUpsize(item)) ? 'Upsize' : 'Regular';
       renderOrderTable();
     } else if (action === 'qty-input') {
       row.qty = Math.max(1, Math.min(30, parseInt(el.value, 10) || 1));
@@ -973,18 +1143,21 @@ function attachEventListeners() {
       showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
       return;
     }
+    const secondItem = MENU_ITEMS[7] || MENU_ITEMS[1] || MENU_ITEMS[0];
     orderRows = [
       {
         rowId: cryptoRowId(),
         itemId: MENU_ITEMS[0].id,
+        size: 'Regular',
         qty: 2,
-        notes: 'Spicy chili oil on side'
+        notes: 'Extra sunny egg'
       },
       {
         rowId: cryptoRowId(),
-        itemId: (MENU_ITEMS[1] || MENU_ITEMS[0]).id,
+        itemId: secondItem.id,
+        size: hasUpsize(secondItem) ? 'Upsize' : 'Regular',
         qty: 1,
-        notes: 'Extra crispy'
+        notes: 'Spicy chili oil on side'
       }
     ];
     custName.value = 'Alex Rivera';
@@ -1160,15 +1333,16 @@ function validateOrderForm() {
   return true;
 }
 
-async function submitOrderToSupabaseServer(rpcArgs, maxRetries = 3) {
+async function submitOrderToSupabaseServer(rpcArgs) {
   if (!SUPABASE_URL || SUPABASE_URL.trim() === '') {
     const proxyRes = await fetch('/api/submit-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rpcArgs)
+      body: JSON.stringify(rpcArgs),
+      cache: 'no-store'
     });
     if (!proxyRes.ok) {
-      const errText = await proxyRes.text();
+      const errText = (await proxyRes.text().catch(() => '')).slice(0, 300);
       throw new Error(errText || `Order rejected (${proxyRes.status})`);
     }
     return await proxyRes.json();
@@ -1185,36 +1359,19 @@ async function submitOrderToSupabaseServer(rpcArgs, maxRetries = 3) {
     headers['Authorization'] = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
   }
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch(rpcEndpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(rpcArgs)
-      });
+  const res = await fetch(rpcEndpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(rpcArgs),
+    cache: 'no-store'
+  });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const msg = errData.message || `Order rejected (${res.status})`;
-        if (res.status >= 400 && res.status < 500) {
-          throw new Error(msg);
-        }
-        throw new Error(msg);
-      }
-      return await res.json();
-    } catch (err) {
-      if (
-        attempt === maxRetries ||
-        String(err.message).includes('limit') ||
-        String(err.message).includes('Invalid') ||
-        String(err.message).includes('required')
-      ) {
-        throw err;
-      }
-      const jitter = Math.floor(Math.random() * 350);
-      await new Promise(r => setTimeout(r, attempt * 900 + jitter));
-    }
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const msg = (errData && errData.message) ? errData.message : `Order rejected (${res.status})`;
+    throw new Error(msg);
   }
+  return await res.json();
 }
 
 async function handleOrderSubmit() {
@@ -1230,7 +1387,7 @@ async function handleOrderSubmit() {
     social: custSocial.value.trim().toLowerCase(),
     location: custLocation.value.trim().toLowerCase(),
     landmark: custLandmark.value.trim().toLowerCase(),
-    items: orderRows.map(r => `${r.itemId}:${r.qty}:${r.notes}`)
+    items: orderRows.map(r => `${r.itemId}:${r.size || 'Regular'}:${r.qty}:${r.notes}`)
   });
 
   if (currentFingerprint === lastSubmittedFingerprint) {
@@ -1246,21 +1403,26 @@ async function handleOrderSubmit() {
 
   const submittedRef = orderReference;
 
-  // Client sends ONLY verified fields + item_id, qty, notes (9 arguments — Preferred Time removed, COD enforced)
+  // Client sends ONLY verified customer fields + item_id, size ('Regular'|'Upsize'), qty, notes.
+  // Order reference and all prices are generated and verified 100% by Supabase.
   const rpcPayload = {
-    p_order_ref: submittedRef,
     p_customer_name: custName.value.trim(),
     p_phone: verifiedE164Phone,
     p_social_handle: custSocial.value.trim(),
     p_fulfillment_mode: custFulfillment.value,
-    p_payment_method: 'Cash on Delivery (COD)',
+    p_payment_method: custPayment.value || 'Cash on Delivery (COD)',
     p_location: custLocation.value.trim(),
     p_landmark: custLandmark.value.trim(),
-    p_items: orderRows.map(r => ({
-      item_id: r.itemId,
-      qty: parseInt(r.qty, 10) || 1,
-      notes: (r.notes || '').trim().slice(0, 100)
-    }))
+    p_items: orderRows.map(r => {
+      const item = getMenuItemById(r.itemId);
+      const validSize = (r.size === 'Upsize' && hasUpsize(item)) ? 'Upsize' : 'Regular';
+      return {
+        item_id: r.itemId,
+        size: validSize,
+        qty: parseInt(r.qty, 10) || 1,
+        notes: (r.notes || '').trim().slice(0, 100)
+      };
+    })
   };
 
   try {

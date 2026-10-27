@@ -835,6 +835,118 @@ body.color-photos .menu-card-img,
   font-weight: 700;
 }
 
+/* Promo Stickers in Menu Header */
+.menu-promo-stickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.badge-price-hero {
+  background: var(--ink);
+  color: var(--paper-pure);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  letter-spacing: 0.05em;
+  border: 1.5px solid var(--ink);
+  box-shadow: 2px 2px 0px var(--paper-pure);
+}
+
+.badge-upsize-hero {
+  background: var(--paper-pure);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0px var(--ink);
+}
+
+/* Size Selector Pill on Cards */
+.card-size-pill {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 2px;
+}
+
+.card-size-btn {
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.68rem;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s ease;
+  line-height: 1.2;
+}
+
+.card-size-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.card-size-btn.active {
+  background: var(--ink);
+  color: var(--paper-pure);
+}
+
+/* Quick Builder Size Select */
+.builder-size-select-wrap {
+  width: 175px;
+}
+
+.builder-size-select {
+  cursor: pointer;
+}
+
+/* Row Size Selector in Table */
+.row-size-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.row-size-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #444;
+}
+
+.row-size-select {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 7px;
+  border: 2px solid var(--ink);
+  background: var(--paper-pure);
+  cursor: pointer;
+}
+
+.row-size-select:focus {
+  outline: none;
+  box-shadow: 2px 2px 0px var(--ink);
+}
+
+.footer-call {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+}
+
 .card-qty-btn {
   width: 22px;
   height: 22px;
