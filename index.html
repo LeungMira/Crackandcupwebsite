@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CRACK & CUP | Rage Room & Coffee Shop — Order Online</title>
-  <!-- Google Fonts: Graffiti / Marker + Clean Brutalist Sans + Monospace Receipt -->
+  <!-- Google Fonts: Graffiti / Marker + Clean Brutalist Sans + Monospace Reference -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Spray+Paint&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -333,12 +333,12 @@
           <div class="sheet-brand">
             <img src="Logo-removebg-preview.png" alt="Crack & Cup" class="sheet-mini-logo" />
             <div>
-              <strong>CRACK &amp; CUP // OFFICIAL ORDER SLIP</strong>
-              <span>AUTO-TEMPLATE FILLOUT TABLE • SERVER-VERIFIED PRICING (PHP ₱)</span>
+              <strong>CRACK &amp; CUP // ONLINE ORDER FORM</strong>
+              <span>SERVER-VERIFIED MENU &amp; PRICING (PHP ₱)</span>
             </div>
           </div>
           <div class="sheet-meta">
-            <span>ORDER REF: <strong id="orderRefCode">#CNC-0001</strong></span>
+            <span>REFERRAL ORDER ID: <strong id="orderRefCode">#CNC-0001</strong></span>
             <span id="orderDateStamp">DATE: --</span>
           </div>
         </div>
@@ -469,27 +469,47 @@
           </div>
 
           <div class="submit-buttons">
-            <button type="button" id="copyOrderTemplateBtn" class="btn-brutal btn-secondary">
-              📋 COPY AUTO-TEMPLATE TEXT
-            </button>
-            <button type="button" id="sendOrderDirectBtn" class="btn-brutal btn-primary">
+            <button type="button" id="sendOrderDirectBtn" class="btn-brutal btn-primary btn-submit-full">
               🚀 SUBMIT ORDER NOW
             </button>
           </div>
         </div>
       </div>
 
-        <!-- Live Auto-Template Text Preview & Submit Status -->
-        <div class="receipt-preview-card" style="grid-column: span 2;">
-          <div class="receipt-header">
-            <span>★ SERVER-VERIFIED ORDER TICKET &amp; SUPABASE SYNC</span>
-            <button type="button" id="downloadReceiptTxtBtn" class="btn-mini-pin">⬇ SAVE .TXT</button>
+      <!-- Order Referral ID Confirmation Box (Replaces the form once submitted) -->
+      <div id="orderConfirmationCard" class="order-confirmation-card hidden" role="region" aria-label="Order Confirmation">
+        <div class="confirmation-header">
+          <span class="confirmation-badge">★ ORDER SUBMITTED // REFERRAL ID</span>
+          <span id="confStatusPill" class="confirmation-status-pill status-delivering">STATUS: DELIVERING</span>
+        </div>
+        <div class="confirmation-body">
+          <div class="referral-highlight-box">
+            <span class="referral-subhead">YOUR REFERRAL ORDER ID:</span>
+            <div class="referral-row">
+              <strong id="confirmedOrderRef" class="referral-code-text">#CNC-0000</strong>
+              <button type="button" id="copyReferralIdBtn" class="btn-tag" title="Copy Referral Order ID to Clipboard">
+                📋 COPY ID
+              </button>
+            </div>
           </div>
-          <pre id="liveOrderTemplatePreview" class="receipt-pre"></pre>
-          <div class="receipt-footer-hint">
-            ✓ Orders submitted here are verified server-side by Supabase and copied to your clipboard.
+          <p class="confirmation-instruction">
+            Please screenshot or copy your <strong>Referral Order ID</strong> above. Reference this ID with our staff or delivery rider to identify your order.
+          </p>
+          <div class="confirmation-pills">
+            <span class="conf-pill">Customer: <strong id="confCustomerName">--</strong></span>
+            <span class="conf-pill">Total Items: <strong id="confTotalQty">0 items</strong></span>
+            <span class="conf-pill">Total Amount: <strong id="confTotalAmount">₱0</strong></span>
+            <span class="conf-pill">Fulfillment: <strong id="confFulfillment">Delivery</strong></span>
+            <span class="conf-pill">Payment: <strong id="confPayment">COD</strong></span>
+            <span class="conf-pill">Status: <strong id="confStatusDetail" class="status-pill status-delivering">Delivering</strong></span>
+          </div>
+          <div class="confirmation-actions">
+            <button type="button" id="newOrderBtn" class="btn-brutal btn-secondary btn-sm">
+              + PLACE ANOTHER ORDER
+            </button>
           </div>
         </div>
+      </div>
     </section>
 
     <!-- FOOTER -->

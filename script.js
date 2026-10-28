@@ -62,7 +62,9 @@ const headerCartCount = document.getElementById('headerCartCount');
 const mobileOrderCountBadge = document.getElementById('mobileOrderCountBadge');
 const orderRefCode = document.getElementById('orderRefCode');
 const orderDateStamp = document.getElementById('orderDateStamp');
-const liveOrderTemplatePreview = document.getElementById('liveOrderTemplatePreview');
+const orderConfirmationCard = document.getElementById('orderConfirmationCard');
+const confirmedOrderRef = document.getElementById('confirmedOrderRef');
+const copyReferralIdBtn = document.getElementById('copyReferralIdBtn');
 
 // Mobile Corner Buttons & Logo Loader (Matches User's Bare-Bones Mobile UI Sketch)
 const mobileLogoLoader = document.getElementById('mobileLogoLoader');
@@ -815,64 +817,6 @@ function updateTotalsAndTemplate() {
   summaryTotalAmount.textContent = `₱${totalAmount.toLocaleString()}`;
   if (headerCartCount) headerCartCount.textContent = totalQty;
   if (mobileOrderCountBadge) mobileOrderCountBadge.textContent = totalQty;
-
-  liveOrderTemplatePreview.textContent = generateOrderTemplateText();
-}
-
-// 12. LOCAL PREVIEW TICKET (All Required Fields Outputted, No Preferred Time)
-function generateOrderTemplateText() {
-  const totalQty = orderRows.reduce((acc, r) => acc + (parseInt(r.qty, 10) || 0), 0);
-  const totalAmount = orderRows.reduce((acc, r) => {
-    const item = getMenuItemById(r.itemId);
-    const unitPrice = getUnitPrice(item, r.size);
-    return acc + ((parseInt(r.qty, 10) || 0) * unitPrice);
-  }, 0);
-
-  const name = custName.value.trim() || '[Required: Customer Name]';
-  const phoneCheck = verifyAndFormatPHPhone(custPhone.value);
-  const phoneDisplay = phoneCheck.valid ? phoneCheck.e164 : (custPhone.value.trim() || '[Required: Verified PH Phone #]');
-  const social = custSocial.value.trim() || '[Required: FB / IG Handle]';
-  const mode = custFulfillment.value;
-  const payment = custPayment.value || 'Cash on Delivery (COD)';
-  const location = custLocation.value.trim() || '[Required: Complete Delivery Address / Location]';
-  const landmark = custLandmark.value.trim() || '[Required: Landmark / Gate #]';
-
-  const itemsLines = orderRows.length > 0
-    ? orderRows.map((r, i) => {
-      const item = getMenuItemById(r.itemId);
-      const isUp = r.size === 'Upsize' && hasUpsize(item);
-      const unitPrice = getUnitPrice(item, isUp ? 'Upsize' : 'Regular');
-      const lineAmt = r.qty * unitPrice;
-      const sizeTag = isUp ? ' [Upsize]' : ' [Regular]';
-      const noteStr = r.notes ? ` (${r.notes})` : '';
-      return `${i + 1}. [${r.qty}x] ${item.name}${sizeTag}${noteStr} — ₱${lineAmt.toLocaleString()} (@₱${unitPrice})`;
-    }).join('\n')
-    : '   (No items added yet)';
-
-  return [
-    `=========================================`,
-    `★ CRACK & CUP — OFFICIAL ORDER TICKET ★`,
-    `"Come to lose the blues, stay for the brews."`,
-    `=========================================`,
-    `ORDER REF : ${orderReference}`,
-    `TIMESTAMP : ${new Date().toLocaleString('en-PH')}`,
-    `-----------------------------------------`,
-    `📋 ORDER ITEMS TABLE:`,
-    itemsLines,
-    `-----------------------------------------`,
-    `TOTAL QUANTITY : ${totalQty} item(s)`,
-    `GRAND TOTAL    : ₱${totalAmount.toLocaleString()}`,
-    `=========================================`,
-    `📍 CUSTOMER CONTACT & LOCATION:`,
-    `• Name      : ${name}`,
-    `• Contact # : ${phoneDisplay}`,
-    `• FB / IG   : ${social}`,
-    `• Order Mode: ${mode}`,
-    `• Payment   : ${payment}`,
-    `• Location  : ${location}`,
-    `• Landmark  : ${landmark}`,
-    `=========================================`
-  ].join('\n');
 }
 
 // 13. EVENT LISTENERS
@@ -1184,27 +1128,45 @@ function attachEventListeners() {
     orderRows = [];
     orderReference = generateOrderRef();
     orderRefCode.textContent = orderReference;
+    if (orderTableSection) {
+      orderTableSection.classList.remove('order-submitted-view');
+    }
+    if (orderConfirmationCard) {
+      orderConfirmationCard.classList.add('hidden');
+    }
     renderOrderTable();
     showToast('Order table cleared.');
   });
 
-  document.getElementById('copyOrderTemplateBtn').addEventListener('click', async () => {
-    const text = liveOrderTemplatePreview.textContent || generateOrderTemplateText();
-    await copyToClipboard(text);
-    showToast('✓ Order template copied to clipboard!');
-  });
+  const newOrderBtn = document.getElementById('newOrderBtn');
+  if (newOrderBtn) {
+    newOrderBtn.addEventListener('click', () => {
+      orderRows = [];
+      orderReference = generateOrderRef();
+      orderRefCode.textContent = orderReference;
+      if (orderTableSection) {
+        orderTableSection.classList.remove('order-submitted-view');
+      }
+      if (orderConfirmationCard) {
+        orderConfirmationCard.classList.add('hidden');
+      }
+      renderOrderTable();
+      if (document.body.classList.contains('mobile-mode')) {
+        setMobilePage('menu');
+      } else {
+        openOrderingTable(false);
+      }
+      showToast('Order form reset. You can now place a new order!');
+    });
+  }
 
-  document.getElementById('downloadReceiptTxtBtn').addEventListener('click', () => {
-    const text = liveOrderTemplatePreview.textContent || generateOrderTemplateText();
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `CrackAndCup-Order-${orderReference.replace('#', '')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Downloaded order ticket (.txt)!');
-  });
+  if (copyReferralIdBtn) {
+    copyReferralIdBtn.addEventListener('click', async () => {
+      const code = (confirmedOrderRef && confirmedOrderRef.textContent) || orderReference;
+      await copyToClipboard(code);
+      showToast(`✓ Referral Order ID copied: ${code}`);
+    });
+  }
 
   document.getElementById('sendOrderDirectBtn').addEventListener('click', handleOrderSubmit);
 }
@@ -1437,22 +1399,68 @@ async function handleOrderSubmit() {
     const serverAssignedRef = (serverResult && serverResult.order_ref)
       ? serverResult.order_ref
       : submittedRef;
-    const verifiedReceipt = (serverResult && serverResult.verified_receipt)
-      ? serverResult.verified_receipt
-      : generateOrderTemplateText();
     const verifiedTotal = (serverResult && serverResult.verified_total !== undefined)
       ? `₱${Number(serverResult.verified_total).toLocaleString()}`
       : summaryTotalAmount.textContent;
 
     orderReference = serverAssignedRef;
     orderRefCode.textContent = serverAssignedRef;
-    liveOrderTemplatePreview.textContent = verifiedReceipt;
+
+    // Populate and display Referral Order ID Confirmation Box (Replaces form in central box)
+    const confCard = document.getElementById('orderConfirmationCard');
+    const confRef = document.getElementById('confirmedOrderRef');
+    const confCust = document.getElementById('confCustomerName');
+    const confQty = document.getElementById('confTotalQty');
+    const confAmt = document.getElementById('confTotalAmount');
+    const confFul = document.getElementById('confFulfillment');
+    const confPay = document.getElementById('confPayment');
+    const confStatusPill = document.getElementById('confStatusPill');
+    const confStatusDetail = document.getElementById('confStatusDetail');
+
+    if (confRef) confRef.textContent = serverAssignedRef;
+    if (confCust) confCust.textContent = custName.value.trim();
+    if (confQty) confQty.textContent = summaryTotalQty.textContent;
+    if (confAmt) confAmt.textContent = verifiedTotal;
+    if (confFul) confFul.textContent = custFulfillment.value;
+    if (confPay) confPay.textContent = custPayment.value;
+
+    const initialStatus = 'Delivering';
+    if (confStatusPill) {
+      confStatusPill.textContent = `STATUS: ${initialStatus.toUpperCase()}`;
+      confStatusPill.className = 'confirmation-status-pill status-delivering';
+    }
+    if (confStatusDetail) {
+      confStatusDetail.textContent = initialStatus;
+      confStatusDetail.className = 'status-pill status-delivering';
+    }
+
+    if (orderTableSection) {
+      orderTableSection.classList.add('order-submitted-view');
+    }
+    if (confCard) {
+      confCard.classList.remove('hidden');
+    }
+
+    if (document.body.classList.contains('mobile-mode')) {
+      setMobilePage('order');
+      const posterFrame = document.getElementById('mainPosterFrame');
+      if (posterFrame) {
+        posterFrame.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      if (confCard) {
+        confCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
     lastSubmittedFingerprint = currentFingerprint;
     setCooldownUntil(Date.now() + 30000);
     recordHourlySubmission();
-    await copyToClipboard(verifiedReceipt);
 
-    showToast(`🎉 Order ${serverAssignedRef} verified (${verifiedTotal}) & saved! Receipt copied.`);
+    // Copy ONLY the Referral Order ID code to clipboard
+    await copyToClipboard(serverAssignedRef);
+
+    showToast(`🎉 Order received! Status: Delivering. Referral ID: ${serverAssignedRef} (copied).`);
 
     let remaining = 30;
     const cdInterval = setInterval(() => {
