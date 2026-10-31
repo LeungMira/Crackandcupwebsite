@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Spray+Paint&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261101" />
+  <link rel="stylesheet" href="styles.css?v=20261101b" />
 </head>
 <body>
   <!-- Cement Texture & Subtle Graffiti Grain Overlay -->
@@ -143,7 +143,7 @@
       <div class="header-top-bar">
         <div class="brand-badge">
           <span class="tag-pill">EST. 2026 • STREET BREWS <span class="amp-clean">&amp;</span> BOWLS</span>
-          <span id="storeStatusBadge" class="status-text seesaw-badge">★ OPEN FOR ORDERS ★</span>
+          <span id="storeStatusBadge" class="status-text seesaw-badge status-closed-badge">⛔ CLOSED FOR ORDERS</span>
         </div>
 
         <div class="header-actions">
@@ -154,7 +154,7 @@
             ◐ PHOTO FILTER: <strong id="photoModeLabel">B&amp;W INK</strong>
           </button>
           <button type="button" id="headerOrderNowBtn" class="btn-tag btn-jump-order">
-            ✎ ORDER NOW (<span id="headerCartCount">0</span>)
+            ⛔ CLOSED FOR ORDERS
           </button>
         </div>
       </div>
@@ -233,7 +233,7 @@
       </div>
 
       <!-- Store Closed Banner (Controlled live by the Staff Handler App) -->
-      <div id="storeClosedBanner" class="store-closed-banner hidden" role="status" aria-live="polite">
+      <div id="storeClosedBanner" class="store-closed-banner" role="status" aria-live="polite">
         <span class="store-closed-pill">⛔ CLOSED FOR ORDERS</span>
         <div class="store-closed-copy">
           <strong>OUR KITCHEN &amp; DISPATCH ARE CURRENTLY CLOSED FOR ONLINE ORDERS</strong>
@@ -555,9 +555,9 @@
   <!-- Google libphonenumber port (libphonenumber-js max metadata bundle) for strict PH Phone Verification -->
   <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.11.14/bundle/libphonenumber-max.js"></script>
   <!-- Runtime Environment Config (Injected by GitHub Actions or Cloudflare Pages) -->
-  <script src="config.js?v=20261101"></script>
+  <script src="config.js?v=20261101b"></script>
   <!-- Cloudflare Turnstile Anti-Bot Protection -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
-  <script src="script.js?v=20261101"></script>
+  <script src="script.js?v=20261101b"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ const SUPABASE_PUBLISHABLE_KEY = ((window.__CNC_CONFIG__ && (
 // Menu is strictly obtained from the server (Zero hardcoded client fallback menu!)
 let MENU_ITEMS = [];
 let menuLoadState = 'loading'; // 'loading' | 'loaded' | 'error'
-let isStoreOpen = true; // Controlled live by the Staff Handler App via Supabase (`system-store-closed`)
+let isStoreOpen = false; // Default CLOSED until server confirms open!
 
 // 2. APPLICATION STATE
 let orderRows = [];
@@ -353,6 +353,14 @@ function applyStoreOpenState() {
     closedBanner.classList.toggle('hidden', isStoreOpen);
   }
 
+  const headerBtn = document.getElementById('headerOrderNowBtn');
+  if (headerBtn) {
+    const totalQty = orderRows.reduce((a, r) => a + (parseInt(r.qty, 10) || 0), 0);
+    headerBtn.innerHTML = isStoreOpen
+      ? `✎ ORDER NOW (<span id="headerCartCount">${totalQty}</span>)`
+      : '⛔ CLOSED FOR ORDERS';
+  }
+
   const heroBtn = document.getElementById('heroOrderNowBtn');
   if (heroBtn) {
     heroBtn.innerHTML = isStoreOpen
@@ -382,11 +390,11 @@ function applyStoreOpenState() {
 
 async function syncStoreStatusOnly() {
   try {
-    let closedFlagFound = false;
+    let nextOpen = false;
     if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
       const cleanBaseUrl = SUPABASE_URL.replace(/\/+$/, '');
       const res = await fetch(
-        `${cleanBaseUrl}/rest/v1/menu_items?select=id,is_available&id=eq.system-store-closed`,
+        `${cleanBaseUrl}/rest/v1/menu_items?select=id,is_available&id=eq.system-store-open`,
         {
           headers: {
             'apikey': SUPABASE_PUBLISHABLE_KEY,
@@ -395,17 +403,18 @@ async function syncStoreStatusOnly() {
           cache: 'no-store'
         }
       );
-      if (!res.ok) return isStoreOpen;
-      const rows = await res.json();
-      closedFlagFound = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
+      if (res.ok) {
+        const rows = await res.json();
+        nextOpen = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-open' && r.is_available === true);
+      }
     } else {
       const res = await fetch('/api/menu', { cache: 'no-store' });
-      if (!res.ok) return isStoreOpen;
-      const rows = await res.json();
-      closedFlagFound = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
+      if (res.ok) {
+        const rows = await res.json();
+        nextOpen = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-open' && r.is_available === true);
+      }
     }
 
-    const nextOpen = !closedFlagFound;
     if (nextOpen !== isStoreOpen) {
       isStoreOpen = nextOpen;
       applyStoreOpenState();
@@ -469,14 +478,14 @@ async function syncMenuFromServer() {
       throw new Error('Malformed menu returned from server');
     }
 
-    // Check if Staff Handler App has marked the store as CLOSED (`system-store-closed`)
-    const storeClosedFlag = rawItems.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
-    isStoreOpen = !storeClosedFlag;
+    // Check if Staff Handler App has marked the store as OPEN (`system-store-open`)
+    const openFlagFound = rawItems.some(r => r && r.id === 'system-store-open' && r.is_available === true);
+    isStoreOpen = openFlagFound;
 
     // STRICT: Every name, price, upsize price, image & description comes ONLY from Supabase.
     // Rows with missing/invalid data or system config flags are dropped — nothing is invented on the client.
     MENU_ITEMS = rawItems
-      .filter(r => r && r.is_available !== false && r.id !== 'system-store-closed' && r.category !== 'System Config')
+      .filter(r => r && r.is_available !== false && r.id !== 'system-store-open' && r.id !== 'system-store-closed' && r.category !== 'System Config')
       .map(normalizeServerMenuRow)
       .filter(Boolean);
 
