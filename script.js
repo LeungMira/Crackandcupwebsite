@@ -15,6 +15,7 @@ const SUPABASE_PUBLISHABLE_KEY = ((window.__CNC_CONFIG__ && (
 // Menu is strictly obtained from the server (Zero hardcoded client fallback menu!)
 let MENU_ITEMS = [];
 let menuLoadState = 'loading'; // 'loading' | 'loaded' | 'error'
+let isStoreOpen = true; // Controlled live by the Staff Handler App via Supabase (`system-store-closed`)
 
 // 2. APPLICATION STATE
 let orderRows = [];
@@ -318,14 +319,106 @@ document.addEventListener('DOMContentLoaded', async () => {
   setOrderControlsEnabled(false);
 
   await syncMenuFromServer();
+
+  // Periodically check if the Handler App toggled Store Open / Closed status
+  setInterval(syncStoreStatusOnly, 15000);
+  window.addEventListener('focus', syncStoreStatusOnly);
 });
 
 function setOrderControlsEnabled(enabled) {
+  const effectiveEnabled = Boolean(enabled && isStoreOpen);
   [quickItemSelect, quickSizeSelect, builderQtyMinus, builderQtyPlus, builderQtyInput, addToTableBtn, addBlankRowBtn, tableFooterAddBtn].forEach(el => {
-    if (el) el.disabled = !enabled;
+    if (el) el.disabled = !effectiveEnabled;
   });
   const sampleBtn = document.getElementById('loadSampleOrderBtn');
-  if (sampleBtn) sampleBtn.disabled = !enabled;
+  if (sampleBtn) sampleBtn.disabled = !effectiveEnabled;
+  const submitBtn = document.getElementById('sendOrderDirectBtn');
+  if (submitBtn && !isSubmittingOrder) {
+    submitBtn.disabled = !effectiveEnabled;
+    submitBtn.innerHTML = isStoreOpen ? '🚀 SUBMIT ORDER NOW' : '⛔ CLOSED FOR ORDERS';
+  }
+}
+
+function applyStoreOpenState() {
+  document.body.classList.toggle('store-closed-mode', !isStoreOpen);
+
+  const badge = document.getElementById('storeStatusBadge');
+  if (badge) {
+    badge.textContent = isStoreOpen ? '★ OPEN FOR ORDERS ★' : '⛔ CLOSED FOR ORDERS';
+    badge.classList.toggle('status-closed-badge', !isStoreOpen);
+  }
+
+  const closedBanner = document.getElementById('storeClosedBanner');
+  if (closedBanner) {
+    closedBanner.classList.toggle('hidden', isStoreOpen);
+  }
+
+  const heroBtn = document.getElementById('heroOrderNowBtn');
+  if (heroBtn) {
+    heroBtn.innerHTML = isStoreOpen
+      ? '<span>★ ORDER NOW</span><span class="btn-arrow">↓</span>'
+      : '<span>⛔ CLOSED FOR ORDERS</span>';
+  }
+
+  const menuBtn = document.getElementById('menuSectionOrderNowBtn');
+  if (menuBtn) {
+    menuBtn.textContent = isStoreOpen ? '★ ORDER NOW (OPEN TABLE)' : '⛔ CLOSED FOR ORDERS';
+  }
+
+  const bannerBtn = document.getElementById('bannerOrderNowBtn');
+  if (bannerBtn) {
+    bannerBtn.innerHTML = isStoreOpen
+      ? '<span>✎ ORDER NOW — FILL OUT TABLE</span><span class="btn-arrow">↓</span>'
+      : '<span>⛔ STORE CLOSED FOR ORDERS</span>';
+  }
+
+  document.querySelectorAll('.card-add-btn').forEach(btn => {
+    btn.disabled = !isStoreOpen;
+    btn.textContent = isStoreOpen ? '+ ADD TO TABLE' : '⛔ CLOSED FOR ORDERS';
+  });
+
+  setOrderControlsEnabled(menuLoadState === 'loaded' && MENU_ITEMS.length > 0);
+}
+
+async function syncStoreStatusOnly() {
+  try {
+    let closedFlagFound = false;
+    if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
+      const cleanBaseUrl = SUPABASE_URL.replace(/\/+$/, '');
+      const res = await fetch(
+        `${cleanBaseUrl}/rest/v1/menu_items?select=id,is_available&id=eq.system-store-closed`,
+        {
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+          },
+          cache: 'no-store'
+        }
+      );
+      if (!res.ok) return isStoreOpen;
+      const rows = await res.json();
+      closedFlagFound = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
+    } else {
+      const res = await fetch('/api/menu', { cache: 'no-store' });
+      if (!res.ok) return isStoreOpen;
+      const rows = await res.json();
+      closedFlagFound = Array.isArray(rows) && rows.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
+    }
+
+    const nextOpen = !closedFlagFound;
+    if (nextOpen !== isStoreOpen) {
+      isStoreOpen = nextOpen;
+      applyStoreOpenState();
+      showToast(
+        isStoreOpen
+          ? '🟢 Crack & Cup is now OPEN for orders!'
+          : '⛔ Crack & Cup is now CLOSED for orders.'
+      );
+    }
+    return isStoreOpen;
+  } catch {
+    return isStoreOpen;
+  }
 }
 
 async function syncMenuFromServer() {
@@ -376,10 +469,14 @@ async function syncMenuFromServer() {
       throw new Error('Malformed menu returned from server');
     }
 
+    // Check if Staff Handler App has marked the store as CLOSED (`system-store-closed`)
+    const storeClosedFlag = rawItems.some(r => r && r.id === 'system-store-closed' && r.is_available !== false);
+    isStoreOpen = !storeClosedFlag;
+
     // STRICT: Every name, price, upsize price, image & description comes ONLY from Supabase.
-    // Rows with missing/invalid data are dropped — nothing is invented on the client.
+    // Rows with missing/invalid data or system config flags are dropped — nothing is invented on the client.
     MENU_ITEMS = rawItems
-      .filter(r => r && r.is_available !== false)
+      .filter(r => r && r.is_available !== false && r.id !== 'system-store-closed' && r.category !== 'System Config')
       .map(normalizeServerMenuRow)
       .filter(Boolean);
 
@@ -397,6 +494,7 @@ async function syncMenuFromServer() {
     setOrderControlsEnabled(true);
     renderMenuGrid();
     renderOrderTable();
+    applyStoreOpenState();
   } catch (err) {
     console.error('[Crack & Cup] Error syncing menu from server:', err);
     // NO client-side fallback menu: if the server menu can't be loaded, ordering is disabled.
@@ -517,6 +615,10 @@ function getMenuItemById(itemId) {
 
 // Reveal / Hide Ordering Table
 function openOrderingTable(scrollToIt = true) {
+  if (!isStoreOpen) {
+    showToast('⛔ Sorry, Crack & Cup is currently CLOSED for orders.');
+    return;
+  }
   if (document.body.classList.contains('mobile-mode')) {
     setMobilePage('order');
     return;
@@ -620,8 +722,8 @@ function renderMenuGrid() {
 ${sizePillHtml}
 
           <div class="menu-card-actions">
-            <button type="button" class="card-add-btn" data-action="card-add" data-id="${safeId}">
-              + ADD TO TABLE
+            <button type="button" class="card-add-btn" data-action="card-add" data-id="${safeId}" ${!isStoreOpen ? 'disabled' : ''}>
+              ${isStoreOpen ? '+ ADD TO TABLE' : '⛔ CLOSED FOR ORDERS'}
             </button>
             <div class="card-qty-amt-box" title="Quantity & Total Amount for this item">
               <button type="button" class="card-qty-btn" data-action="card-minus" data-id="${safeId}" aria-label="Decrease quantity">−</button>
@@ -681,6 +783,10 @@ function populateQuickSizeSelect(item) {
 
 // 10. ADD ITEM TO ORDER TABLE
 function addItemToOrderTable(itemId, qty = 1, size = 'Regular', notes = '') {
+  if (!isStoreOpen) {
+    showToast('⛔ Sorry, Crack & Cup is currently CLOSED for orders.');
+    return;
+  }
   if (menuLoadState !== 'loaded') {
     showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
     return;
@@ -1310,6 +1416,11 @@ function validateOrderForm() {
     return false;
   }
 
+  if (!isStoreOpen) {
+    showToast('⛔ Sorry, Crack & Cup is currently CLOSED for orders.');
+    return false;
+  }
+
   if (menuLoadState !== 'loaded' || MENU_ITEMS.length === 0) {
     showToast('ERROR MENU FAILED TO RETRIEVE, Please check your connection and try again.');
     return false;
@@ -1460,6 +1571,11 @@ async function submitOrderToSupabaseServer(rpcArgs) {
 
 async function handleOrderSubmit() {
   if (isSubmittingOrder) return;
+  const currentlyOpen = await syncStoreStatusOnly();
+  if (!currentlyOpen) {
+    showToast('⛔ Sorry, Crack & Cup is currently CLOSED for orders.');
+    return;
+  }
   if (!validateOrderForm()) return;
 
   const phoneCheck = verifyAndFormatPHPhone(custPhone.value);

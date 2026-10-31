@@ -311,6 +311,65 @@ body {
   }
 }
 
+.status-closed-badge {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: var(--ink) !important;
+}
+
+.store-closed-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  background: #fef2f2;
+  border: 3px solid var(--ink);
+  box-shadow: 5px 5px 0px var(--ink);
+}
+
+.store-closed-pill {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  background: #dc2626;
+  color: #ffffff;
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0px var(--ink);
+}
+
+.store-closed-copy strong {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 2px;
+}
+
+.store-closed-copy p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+body.store-closed-mode .card-add-btn {
+  background: #9ca3af !important;
+  color: #ffffff !important;
+  cursor: not-allowed !important;
+  opacity: 0.85;
+}
+
+@media (max-width: 640px) {
+  .store-closed-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
 .header-actions {
   display: flex;
   flex-wrap: wrap;
