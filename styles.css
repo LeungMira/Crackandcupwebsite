@@ -1710,6 +1710,13 @@ body.color-photos .menu-card-img,
   letter-spacing: 0.5px;
 }
 
+.status-pending {
+  background: #fef08a;
+  color: #713f12;
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0px var(--ink);
+}
+
 .status-delivering {
   background: #ffec3d;
   color: #111;
@@ -1721,6 +1728,15 @@ body.color-photos .menu-card-img,
   color: #052e16;
   border-color: #052e16;
   box-shadow: 2px 2px 0px #052e16;
+}
+
+.turnstile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0 8px;
+  min-height: 65px;
+  width: 100%;
 }
 
 .referral-highlight-box {

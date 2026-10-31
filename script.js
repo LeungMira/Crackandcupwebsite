@@ -21,7 +21,7 @@ let orderRows = [];
 let activeCategory = 'all';
 let cardQuantities = {};
 let cardSizes = {};
-let orderReference = generateOrderRef();
+let orderReference = ''; // Referral Code is 100% server-generated upon order submission
 let isManualMobilePreview = false;
 let activeMobilePage = 'menu'; // 'menu' | 'order'
 
@@ -34,11 +34,6 @@ function initCardQuantities() {
       cardSizes[item.id] = 'Regular';
     }
   });
-}
-
-function generateOrderRef() {
-  const num = Math.floor(1000 + Math.random() * 9000);
-  return `#CNC-${num}`;
 }
 
 // 3. DOM ELEMENTS
@@ -269,8 +264,38 @@ function updatePhoneValidationUI(formatValueOnValid = false) {
 }
 
 // 6. INITIALIZATION & STRICT SERVER MENU RETRIEVAL
+let turnstileWidgetId = null;
+
+function initTurnstile() {
+  const container = document.getElementById('cfTurnstileWidget');
+  const wrapper = document.getElementById('turnstileContainer');
+  if (!container) return;
+
+  const siteKey = ((window.__CNC_CONFIG__ && window.__CNC_CONFIG__.TURNSTILE_SITE_KEY) || '').trim();
+  if (!siteKey) {
+    if (wrapper) wrapper.classList.add('hidden');
+    return;
+  }
+
+  if (!window.turnstile || turnstileWidgetId !== null) return;
+  if (wrapper) wrapper.classList.remove('hidden');
+
+  try {
+    turnstileWidgetId = window.turnstile.render(container, {
+      sitekey: siteKey,
+      theme: 'light'
+    });
+  } catch (err) {
+    console.warn('Turnstile render notice:', err);
+  }
+}
+
+window.onloadTurnstileCallback = function() {
+  initTurnstile();
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
-  orderRefCode.textContent = orderReference;
+  if (orderRefCode) orderRefCode.textContent = 'Assigned on submit';
   orderDateStamp.textContent = `DATE: ${new Date().toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
@@ -282,6 +307,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('resize', () => applyMobileModeState(false));
 
   attachEventListeners();
+
+  if (window.turnstile) {
+    initTurnstile();
+  }
 
   // Render initial loading state and fetch menu strictly from server
   renderMenuGrid();
@@ -788,7 +817,7 @@ function renderOrderTable() {
               </div>
 
               <div class="row-amount-box" title="Server Price × Quantity = Line Amount">
-                <span class="unit-price-tag">@₱${unitPrice}</span>
+                <span class="unit-price-tag">₱${unitPrice}</span>
                 <span class="row-line-total">₱${lineTotal.toLocaleString()}</span>
               </div>
             </div>
@@ -1064,28 +1093,75 @@ function attachEventListeners() {
   });
 
   detectLocationBtn.addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      showToast('Geolocation is not supported by your browser.');
+    if (!window.isSecureContext || !navigator.geolocation) {
+      showToast('⚠ Geolocation requires a secure HTTPS connection and browser permission.');
       return;
     }
+    if (detectLocationBtn.disabled) return;
+
+    detectLocationBtn.disabled = true;
     detectLocationBtn.textContent = '⏳ LOCATING...';
+
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const lat = pos.coords.latitude.toFixed(6);
-        const lng = pos.coords.longitude.toFixed(6);
-        const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
-        const existing = custLocation.value.trim();
-        custLocation.value = existing ? `${existing} (${mapsUrl})` : `GPS Pin: ${mapsUrl}`;
+        const rawLat = Number(pos && pos.coords && pos.coords.latitude);
+        const rawLng = Number(pos && pos.coords && pos.coords.longitude);
+
+        if (
+          !Number.isFinite(rawLat) ||
+          !Number.isFinite(rawLng) ||
+          rawLat < -90 ||
+          rawLat > 90 ||
+          rawLng < -180 ||
+          rawLng > 180
+        ) {
+          detectLocationBtn.disabled = false;
+          detectLocationBtn.textContent = '📍 PIN MY CURRENT GPS LOCATION';
+          showToast('⚠ Invalid GPS coordinates received. Please type your address manually.');
+          return;
+        }
+
+        const lat = rawLat.toFixed(6);
+        const lng = rawLng.toFixed(6);
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+        // Strip any previous GPS Pin / Google Maps URL so repeated clicks never duplicate
+        const cleanedExisting = custLocation.value
+          .replace(/\s*\(https?:\/\/(?:www\.)?google\.com\/maps[^\s)]*\)/gi, '')
+          .replace(/\s*\(https?:\/\/maps\.google\.com\/[^\s)]*\)/gi, '')
+          .replace(/^GPS Pin:\s*https?:\/\/[^\s]+$/i, '')
+          .trim();
+
+        const combined = cleanedExisting ? `${cleanedExisting} (${mapsUrl})` : `GPS Pin: ${mapsUrl}`;
+        custLocation.value = combined.slice(0, 280);
+
         detectLocationBtn.textContent = '✓ GPS PINNED!';
         updateTotalsAndTemplate();
-        showToast('Pinned your GPS coordinates to the Location field!');
+        showToast(
+          cleanedExisting
+            ? '✓ Pinned your GPS coordinates to the Location field!'
+            : '✓ GPS Pinned! Please also add your street / house details.'
+        );
         setTimeout(() => {
+          detectLocationBtn.disabled = false;
           detectLocationBtn.textContent = '📍 PIN MY CURRENT GPS LOCATION';
-        }, 3000);
+        }, 2500);
       },
-      () => {
+      err => {
+        detectLocationBtn.disabled = false;
         detectLocationBtn.textContent = '📍 PIN MY CURRENT GPS LOCATION';
-        showToast('Could not auto-detect GPS. Please type your address manually.');
+        if (err && err.code === 1) {
+          showToast('⚠ Location permission denied. Please allow location access or type your address.');
+        } else if (err && err.code === 3) {
+          showToast('⚠ GPS location timed out. Please try again or type your address manually.');
+        } else {
+          showToast('⚠ Could not auto-detect GPS. Please type your address manually.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       }
     );
   });
@@ -1126,13 +1202,18 @@ function attachEventListeners() {
 
   document.getElementById('clearTableBtn').addEventListener('click', () => {
     orderRows = [];
-    orderReference = generateOrderRef();
-    orderRefCode.textContent = orderReference;
+    orderReference = '';
+    if (orderRefCode) orderRefCode.textContent = 'Assigned on submit';
     if (orderTableSection) {
       orderTableSection.classList.remove('order-submitted-view');
     }
     if (orderConfirmationCard) {
       orderConfirmationCard.classList.add('hidden');
+    }
+    if (window.turnstile && turnstileWidgetId !== null) {
+      try {
+        window.turnstile.reset(turnstileWidgetId);
+      } catch {}
     }
     renderOrderTable();
     showToast('Order table cleared.');
@@ -1142,13 +1223,18 @@ function attachEventListeners() {
   if (newOrderBtn) {
     newOrderBtn.addEventListener('click', () => {
       orderRows = [];
-      orderReference = generateOrderRef();
-      orderRefCode.textContent = orderReference;
+      orderReference = '';
+      if (orderRefCode) orderRefCode.textContent = 'Assigned on submit';
       if (orderTableSection) {
         orderTableSection.classList.remove('order-submitted-view');
       }
       if (orderConfirmationCard) {
         orderConfirmationCard.classList.add('hidden');
+      }
+      if (window.turnstile && turnstileWidgetId !== null) {
+        try {
+          window.turnstile.reset(turnstileWidgetId);
+        } catch {}
       }
       renderOrderTable();
       if (document.body.classList.contains('mobile-mode')) {
@@ -1164,7 +1250,7 @@ function attachEventListeners() {
     copyReferralIdBtn.addEventListener('click', async () => {
       const code = (confirmedOrderRef && confirmedOrderRef.textContent) || orderReference;
       await copyToClipboard(code);
-      showToast(`✓ Referral Order ID copied: ${code}`);
+      showToast(`✓ Order Code copied: ${code}`);
     });
   }
 
@@ -1209,6 +1295,15 @@ function recordHourlySubmission() {
   }
 }
 
+// Verify that an input string does not contain arbitrary external links (only verified Google Maps GPS pin allowed)
+function hasUnsafeUrl(text) {
+  const withoutSafeGps = String(text || '').replace(
+    /https:\/\/(?:www\.)?google\.com\/maps\?q=-?\d{1,2}\.\d{1,8},-?\d{1,3}\.\d{1,8}|https:\/\/maps\.google\.com\/\?q=-?\d{1,2}\.\d{1,8},-?\d{1,3}\.\d{1,8}/g,
+    ''
+  );
+  return /https?:\/\/|javascript:|data:/i.test(withoutSafeGps);
+}
+
 function validateOrderForm() {
   const honeypot = document.getElementById('websiteHoneypot');
   if (honeypot && honeypot.value.trim() !== '') {
@@ -1246,9 +1341,9 @@ function validateOrderForm() {
 
   // 1. Customer Name (Required, 2–80 chars)
   const nameVal = custName.value.trim();
-  if (nameVal.length < 2 || nameVal.length > 80) {
+  if (nameVal.length < 2 || nameVal.length > 80 || hasUnsafeUrl(nameVal)) {
     custName.focus();
-    showToast('⚠ Please enter your Name / Nickname (2–80 characters).');
+    showToast('⚠ Please enter a valid Name / Nickname (2–80 characters, no links).');
     return false;
   }
 
@@ -1271,10 +1366,10 @@ function validateOrderForm() {
     return false;
   }
 
-  // 4. Order Type & Payment (COD / Payment on Delivery Only!)
-  if (!['Delivery', 'Pick-Up', 'Dine-In'].includes(custFulfillment.value)) {
+  // 4. Order Type & Payment (Delivery & COD Only!)
+  if (custFulfillment.value !== 'Delivery') {
     custFulfillment.focus();
-    showToast('⚠ Please select a valid Order Mode.');
+    showToast('⚠ Only Delivery orders are accepted right now.');
     return false;
   }
 
@@ -1284,20 +1379,29 @@ function validateOrderForm() {
     return false;
   }
 
-  // 5. Complete Location / Address (Required, 4–280 chars)
+  // 5. Complete Location / Address (Required, 4–280 chars, no arbitrary external links)
   const locVal = custLocation.value.trim();
-  if (locVal.length < 4 || locVal.length > 280) {
+  if (locVal.length < 4 || locVal.length > 280 || hasUnsafeUrl(locVal)) {
     custLocation.focus();
-    showToast('⚠ Please enter your Complete Delivery Address / Location (min 4 characters).');
+    showToast('⚠ Please enter your Complete Delivery Address / Location (4–280 characters, no external links).');
     return false;
   }
 
   // 6. Landmark / Gate # (Required — All fields must be filled to submit!)
   const landmarkVal = custLandmark.value.trim();
-  if (landmarkVal.length < 2 || landmarkVal.length > 160) {
+  if (landmarkVal.length < 2 || landmarkVal.length > 160 || hasUnsafeUrl(landmarkVal)) {
     custLandmark.focus();
-    showToast('⚠ Please enter your Landmark / Gate # (All fields are required).');
+    showToast('⚠ Please enter your Landmark / Gate # (2–160 characters, no links).');
     return false;
+  }
+
+  // 7. Cloudflare Turnstile Anti-Bot Security Check
+  if (window.turnstile && turnstileWidgetId !== null) {
+    const token = window.turnstile.getResponse(turnstileWidgetId);
+    if (!token) {
+      showToast('⚠ Please complete the security check (Turnstile) before submitting.');
+      return false;
+    }
   }
 
   return true;
@@ -1327,10 +1431,22 @@ async function submitOrderToSupabaseServer(rpcArgs) {
     'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
   };
 
+  const payload = {
+    p_customer_name: rpcArgs.p_customer_name,
+    p_phone: rpcArgs.p_phone,
+    p_social_handle: rpcArgs.p_social_handle,
+    p_fulfillment_mode: rpcArgs.p_fulfillment_mode,
+    p_payment_method: rpcArgs.p_payment_method,
+    p_location: rpcArgs.p_location,
+    p_landmark: rpcArgs.p_landmark,
+    p_items: rpcArgs.p_items,
+    p_turnstile_token: rpcArgs.turnstile_token || rpcArgs.p_turnstile_token || null
+  };
+
   const res = await fetch(rpcEndpoint, {
     method: 'POST',
     headers,
-    body: JSON.stringify(rpcArgs),
+    body: JSON.stringify(payload),
     cache: 'no-store'
   });
 
@@ -1369,10 +1485,13 @@ async function handleOrderSubmit() {
   btn.innerHTML = '⏳ VERIFYING & SAVING...';
   btn.disabled = true;
 
-  const submittedRef = orderReference;
+  let turnstileToken = '';
+  if (window.turnstile && turnstileWidgetId !== null) {
+    turnstileToken = window.turnstile.getResponse(turnstileWidgetId) || '';
+  }
 
-  // Client sends ONLY verified customer fields + item_id, size ('Regular'|'Upsize'), qty, notes.
-  // Order reference and all prices are generated and verified 100% by Supabase.
+  // Client sends ONLY customer inputs and items (No client-generated ID!)
+  // Referral code is generated and guaranteed unique 100% by Supabase.
   const rpcPayload = {
     p_customer_name: custName.value.trim(),
     p_phone: verifiedE164Phone,
@@ -1390,21 +1509,21 @@ async function handleOrderSubmit() {
         qty: parseInt(r.qty, 10) || 1,
         notes: (r.notes || '').trim().slice(0, 100)
       };
-    })
+    }),
+    turnstile_token: turnstileToken,
+    p_turnstile_token: turnstileToken
   };
 
   try {
     const serverResult = await submitOrderToSupabaseServer(rpcPayload);
 
-    const serverAssignedRef = (serverResult && serverResult.order_ref)
-      ? serverResult.order_ref
-      : submittedRef;
+    const serverAssignedRef = (serverResult && serverResult.order_ref) || 'CONFIRMED';
     const verifiedTotal = (serverResult && serverResult.verified_total !== undefined)
       ? `₱${Number(serverResult.verified_total).toLocaleString()}`
       : summaryTotalAmount.textContent;
 
     orderReference = serverAssignedRef;
-    orderRefCode.textContent = serverAssignedRef;
+    if (orderRefCode) orderRefCode.textContent = serverAssignedRef;
 
     // Populate and display Referral Order ID Confirmation Box (Replaces form in central box)
     const confCard = document.getElementById('orderConfirmationCard');
@@ -1424,14 +1543,14 @@ async function handleOrderSubmit() {
     if (confFul) confFul.textContent = custFulfillment.value;
     if (confPay) confPay.textContent = custPayment.value;
 
-    const initialStatus = 'Delivering';
+    const initialStatus = 'Pending';
     if (confStatusPill) {
-      confStatusPill.textContent = `STATUS: ${initialStatus.toUpperCase()}`;
-      confStatusPill.className = 'confirmation-status-pill status-delivering';
+      confStatusPill.textContent = 'STATUS: PENDING CONFIRMATION';
+      confStatusPill.className = 'confirmation-status-pill status-pending';
     }
     if (confStatusDetail) {
-      confStatusDetail.textContent = initialStatus;
-      confStatusDetail.className = 'status-pill status-delivering';
+      confStatusDetail.textContent = 'Pending';
+      confStatusDetail.className = 'status-pill status-pending';
     }
 
     if (orderTableSection) {
@@ -1457,10 +1576,10 @@ async function handleOrderSubmit() {
     setCooldownUntil(Date.now() + 30000);
     recordHourlySubmission();
 
-    // Copy ONLY the Referral Order ID code to clipboard
+    // Copy ONLY the Order Code to clipboard
     await copyToClipboard(serverAssignedRef);
 
-    showToast(`🎉 Order received! Status: Delivering. Referral ID: ${serverAssignedRef} (copied).`);
+    showToast(`🎉 Order received! Status: Pending Confirmation. Order Code: ${serverAssignedRef} (copied).`);
 
     let remaining = 30;
     const cdInterval = setInterval(() => {

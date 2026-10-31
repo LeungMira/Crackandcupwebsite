@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Spray+Paint&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261031" />
 </head>
 <body>
   <!-- Cement Texture & Subtle Graffiti Grain Overlay -->
@@ -334,11 +334,11 @@
             <img src="Logo-removebg-preview.png" alt="Crack & Cup" class="sheet-mini-logo" />
             <div>
               <strong>CRACK &amp; CUP // ONLINE ORDER FORM</strong>
-              <span>SERVER-VERIFIED MENU &amp; PRICING (PHP ₱)</span>
+              <span>SERVER-VERIFIED MENU &amp; PRICING (₱)</span>
             </div>
           </div>
           <div class="sheet-meta">
-            <span>REFERRAL ORDER ID: <strong id="orderRefCode">#CNC-0001</strong></span>
+            <span>ORDER CODE: <strong id="orderRefCode">Assigned on submit</strong></span>
             <span id="orderDateStamp">DATE: --</span>
           </div>
         </div>
@@ -416,14 +416,12 @@
                       <input type="text" id="custSocial" class="input-brutal" placeholder="FB Messenger / IG Handle *" minlength="2" maxlength="80" required />
                     </div>
 
-                    <!-- Order Mode & Payment (COD / Payment on Delivery Only) -->
+                    <!-- Order Mode & Payment (Delivery & COD Only) -->
                     <div class="form-cell">
-                      <label for="custFulfillment">4. ORDER TYPE &amp; PAYMENT (COD ONLY) *</label>
+                      <label for="custFulfillment">4. ORDER TYPE &amp; PAYMENT (DELIVERY COD ONLY) *</label>
                       <div class="split-selects">
                         <select id="custFulfillment" class="input-brutal" required>
-                          <option value="Delivery">🛵 Delivery</option>
-                          <option value="Pick-Up">🛍️ Pick-Up at Shop</option>
-                          <option value="Dine-In">🍽️ Dine-In at Shop</option>
+                          <option value="Delivery" selected>🛵 Delivery Only</option>
                         </select>
                         <select id="custPayment" class="input-brutal" required>
                           <option value="Cash on Delivery (COD)" selected>💵 COD / Payment on Delivery</option>
@@ -465,10 +463,14 @@
         <div class="sheet-submit-bar">
           <div class="submit-left-note">
             <span class="cute-kaomoji">(っ˘ڡ˘ς)</span>
-            <span>All fields (*) are required. Payment on Delivery (COD) only — online payments coming soon!</span>
+            <span>All fields (*) are required. Delivery &amp; Payment on Delivery (COD) only — online payments coming soon!</span>
           </div>
 
           <div class="submit-buttons">
+            <!-- Cloudflare Turnstile Anti-Bot Security Check (Automatically shown when TURNSTILE_SITE_KEY is provided) -->
+            <div id="turnstileContainer" class="turnstile-container hidden">
+              <div id="cfTurnstileWidget"></div>
+            </div>
             <button type="button" id="sendOrderDirectBtn" class="btn-brutal btn-primary btn-submit-full">
               🚀 SUBMIT ORDER NOW
             </button>
@@ -476,24 +478,24 @@
         </div>
       </div>
 
-      <!-- Order Referral ID Confirmation Box (Replaces the form once submitted) -->
+      <!-- Order Code Confirmation Box (Replaces the form once submitted) -->
       <div id="orderConfirmationCard" class="order-confirmation-card hidden" role="region" aria-label="Order Confirmation">
         <div class="confirmation-header">
-          <span class="confirmation-badge">★ ORDER SUBMITTED // REFERRAL ID</span>
-          <span id="confStatusPill" class="confirmation-status-pill status-delivering">STATUS: DELIVERING</span>
+          <span class="confirmation-badge">★ ORDER SUBMITTED // ORDER CODE</span>
+          <span id="confStatusPill" class="confirmation-status-pill status-pending">STATUS: PENDING CONFIRMATION</span>
         </div>
         <div class="confirmation-body">
           <div class="referral-highlight-box">
-            <span class="referral-subhead">YOUR REFERRAL ORDER ID:</span>
+            <span class="referral-subhead">YOUR ORDER CODE:</span>
             <div class="referral-row">
               <strong id="confirmedOrderRef" class="referral-code-text">#CNC-0000</strong>
-              <button type="button" id="copyReferralIdBtn" class="btn-tag" title="Copy Referral Order ID to Clipboard">
-                📋 COPY ID
+              <button type="button" id="copyReferralIdBtn" class="btn-tag" title="Copy Order Code to Clipboard">
+                📋 COPY CODE
               </button>
             </div>
           </div>
           <p class="confirmation-instruction">
-            Please screenshot or copy your <strong>Referral Order ID</strong> above. Reference this ID with our staff or delivery rider to identify your order.
+            Please screenshot or copy your <strong>Order Code</strong> above. Our staff will call or message your contact number/social account to confirm your order before cooking.
           </p>
           <div class="confirmation-pills">
             <span class="conf-pill">Customer: <strong id="confCustomerName">--</strong></span>
@@ -501,7 +503,7 @@
             <span class="conf-pill">Total Amount: <strong id="confTotalAmount">₱0</strong></span>
             <span class="conf-pill">Fulfillment: <strong id="confFulfillment">Delivery</strong></span>
             <span class="conf-pill">Payment: <strong id="confPayment">COD</strong></span>
-            <span class="conf-pill">Status: <strong id="confStatusDetail" class="status-pill status-delivering">Delivering</strong></span>
+            <span class="conf-pill">Status: <strong id="confStatusDetail" class="status-pill status-pending">Pending</strong></span>
           </div>
           <div class="confirmation-actions">
             <button type="button" id="newOrderBtn" class="btn-brutal btn-secondary btn-sm">
@@ -544,7 +546,9 @@
   <!-- Google libphonenumber port (libphonenumber-js max metadata bundle) for strict PH Phone Verification -->
   <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.11.14/bundle/libphonenumber-max.js"></script>
   <!-- Runtime Environment Config (Injected by GitHub Actions or Cloudflare Pages) -->
-  <script src="config.js"></script>
-  <script src="script.js"></script>
+  <script src="config.js?v=20261031"></script>
+  <!-- Cloudflare Turnstile Anti-Bot Protection -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
+  <script src="script.js?v=20261031"></script>
 </body>
 </html>
